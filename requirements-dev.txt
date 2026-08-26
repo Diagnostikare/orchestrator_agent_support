@@ -1,0 +1,6 @@
+# Desarrollo local: runtime + evals + tests.
+# Los extras de eval NO van en la imagen desplegada (pandas y compania).
+-r support_agent/requirements.txt
+google-adk[eval]==2.7.1
+python-dotenv==1.2.3
+pytest==9.1.1

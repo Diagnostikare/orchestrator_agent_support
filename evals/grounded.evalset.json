@@ -1,0 +1,49 @@
+{
+  "eval_set_id": "grounded",
+  "name": "Respuestas fundamentadas en documentacion",
+  "description": "Casos donde el agente DEBE buscar en la documentacion. Se mide que no invente (hallucinations_v1) Y que acierte (final_response_match_v2). Las dos cosas: sin la segunda, un 'no lo encontre' saca 1.0 aunque el dato estuviera en el corpus.",
+  "eval_cases": [
+    {
+      "eval_id": "medical_dato_en_corpus",
+      "session_input": {
+        "app_name": "support_agent",
+        "user_id": "eval_medico",
+        "state": {"profile": {"user_id": "eval_medico", "category": "medical"}}
+      },
+      "conversation": [
+        {
+          "invocation_id": "1",
+          "user_content": {
+            "role": "user",
+            "parts": [{"text": "Segun el aviso de privacidad, quien es el responsable del tratamiento de los datos personales?"}]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [{"text": "Segun el Aviso de Privacidad Diagnostikare 2026, el responsable del uso, proteccion y tratamiento de los datos personales es Servicios Clinicos Inteligentes DXKARE, S.A.P.I. de C.V."}]
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "medical_dato_fuera_del_corpus",
+      "session_input": {
+        "app_name": "support_agent",
+        "user_id": "eval_medico",
+        "state": {"profile": {"user_id": "eval_medico", "category": "medical"}}
+      },
+      "conversation": [
+        {
+          "invocation_id": "1",
+          "user_content": {
+            "role": "user",
+            "parts": [{"text": "Cuanto cuesta exactamente el plan empresarial en pesos mexicanos?"}]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [{"text": "No encontre esa informacion en la documentacion oficial disponible. Puedo abrir un ticket de soporte para que te confirmen el precio."}]
+          }
+        }
+      ]
+    }
+  ]
+}
