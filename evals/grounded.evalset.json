@@ -6,7 +6,7 @@
     {
       "eval_id": "medical_dato_en_corpus",
       "session_input": {
-        "app_name": "support_agent",
+        "app_name": "agent",
         "user_id": "eval_medico",
         "state": {"profile": {"user_id": "eval_medico", "category": "medical"}}
       },
@@ -27,7 +27,7 @@
     {
       "eval_id": "medical_dato_fuera_del_corpus",
       "session_input": {
-        "app_name": "support_agent",
+        "app_name": "agent",
         "user_id": "eval_medico",
         "state": {"profile": {"user_id": "eval_medico", "category": "medical"}}
       },

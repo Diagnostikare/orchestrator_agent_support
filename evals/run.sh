@@ -8,9 +8,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 echo "=== grounded (fundamentacion + acierto) ==="
-.venv/bin/adk eval support_agent evals/grounded.evalset.json \
+.venv/bin/adk eval agent evals/grounded.evalset.json \
   --config_file_path evals/grounded.config.json "$@"
 
 echo "=== scope (respeto de alcance) ==="
-.venv/bin/adk eval support_agent evals/scope.evalset.json \
+.venv/bin/adk eval agent evals/scope.evalset.json \
   --config_file_path evals/scope.config.json "$@"

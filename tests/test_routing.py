@@ -7,8 +7,8 @@ evals/ con LLM-as-judge, no aca.
 
 import pytest
 
-from support_agent.agent import FALLBACK, ROUTES, root_agent
-from support_agent.profile import read_category, read_profile
+from agent.agent import FALLBACK, ROUTES, root_agent
+from agent.profile import read_category, read_profile
 
 STANDARD = "support_standard"
 MEDICAL = "support_medical"
