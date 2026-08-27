@@ -303,10 +303,94 @@ base — da un 404 que parece del engine y no lo es.
 1. ~~Redesplegar el engine `6890865320911699968` con el clasificador.~~
    Desplegado y verificado el 2026-08-27 16:20.
 
-**Equipo de backend (ustedes)**
+**Equipo de backend (ustedes)** — hecho, salvo un punto
 
-1. `sessions_controller`: aceptar y mandar `sessionState`.
-2. `SupportTickets::Classify` — service nuevo, server-to-server, sin SSE.
-3. `push_to_github.rb`: llenar `classify!` con la línea que ya está en el
-   comentario.
-4. Confirmarnos el formato final del `message` (§4) para alinear el eval.
+- ~~`SupportTickets::Classify` — service nuevo, server-to-server, sin SSE.~~
+  Escrito sobre `feat/cora-support`, con specs. Ver §8.
+- ~~`push_to_github.rb`: llenar `classify!`.~~ Hecho, con el fallback a texto
+  raw que el propio comentario pedía.
+- ~~Confirmarnos el formato final del `message` (§4).~~ Queda fijado en
+  `SupportTickets::AgentPrompt`, con un spec que compara contra el bloque
+  literal de §4.
+- **Pendiente:** `sessions_controller`, aceptar y mandar `sessionState`. La
+  clasificación ya no lo necesita (Classify abre su propia sesión), pero el
+  chat sí: sin él nunca se llega a `support_medical`.
+
+---
+
+## 8. Lo que quedó escrito del lado de core-api
+
+Rama `feat/cora-support`. Cuatro archivos nuevos y un hueco lleno:
+
+| Archivo | Qué hace |
+| --- | --- |
+| `app/services/cora/client.rb` | Token del service account y URLs, vía `AgentRegistry` para no abrir una segunda fuente de verdad. Falla explícito si `CORA_SUPPORT_AGENT_ID` no está. |
+| `app/services/support_tickets/agent_prompt.rb` | Renderiza el ticket como el string de §4. Sin `flow_token`, sin ids de GitHub. |
+| `app/services/support_tickets/classify.rb` | Las dos llamadas HTTP. Junta el body y parsea NDJSON al final (también tolera `data:` por si algún día se usa `alt=sse`). |
+| `push_to_github.rb#classify!` | `agent_output` o `NULL`, nunca una excepción hacia arriba. |
+
+Decisiones que conviene que conozcan:
+
+- **`user_id`**: el `reporter_id` del ticket, o `support-ticket-<id>` cuando el
+  número es desconocido. Va idéntico en la sesión y en el `streamQuery`.
+- **Vocabulario abierto en la lectura**: si `classification` o `priority` traen
+  un valor fuera de la lista, se guarda **verbatim** y solo se loguea un
+  warning. Lo que sí es fatal es que falte una de las cuatro llaves.
+- **`author` inesperado**: si la respuesta viene de `support_standard`, se
+  loguea con ese nombre antes de fallar — el `JSON::ParserError` a secas no
+  decía nada y es el síntoma de §2.
+- **No se reclasifica** un ticket que ya trae `agent_output`, así que un job
+  reintentado no vuelve a pagar el agente.
+
+⚠️ **Discrepancia de vocabulario detectada.** La factory de core-api
+(`spec/factories/support_tickets.rb`) usa `classification: "prescriptions"`, que
+no está en el enum que declara §5 (`billing | scheduling | technical | other`).
+El clasificador no lo puede devolver hoy. O el agente amplía el vocabulario o
+backend corrige la factory — pero uno de los dos está equivocado.
+
+---
+
+## 9. La otra direccion: el agente escribiendo tickets
+
+Los commits `3541843` / `8bca66f` abrieron
+`/api/v1/agents/support_tickets` con `X-Agent-Secret`. Ya esta consumido
+desde `agent/tools/support_tickets.py`, y los agentes conversacionales
+(`support_standard` y `support_medical`) lo tienen enchufado:
+
+| Tool | Endpoint |
+| --- | --- |
+| `consultar_mis_tickets` | `GET /api/v1/agents/support_tickets?reporter_type=&reporter_id=` |
+| `ver_ticket` | `GET /api/v1/agents/support_tickets/:id` |
+| `crear_ticket` | `POST /api/v1/agents/support_tickets` |
+
+`PATCH` y `DELETE` quedan sin exponer a proposito.
+
+### Lo que necesitamos de ustedes
+
+1. **`AGENT_API_SECRET` compartido.** Nosotros lo leemos de la misma variable,
+   y va en `agent/.env` (de ahi sube al environment del reasoningEngine). Si
+   los dos valores no coinciden, todo responde 401 y el agente le dice al
+   usuario que no puede registrar su reporte. Pasenoslo por el canal de
+   siempre, no por aqui.
+2. **`CORE_API_BASE_URL`** por ambiente (beta y produccion). Sin slash final.
+3. **`profile.reporter_type` en el `sessionState`.** Hoy sembramos `user_id` y
+   `category`; para `create` hace falta saber si es `User` o `ApiUser`, que es
+   lo que valida `SupportTicket::REPORTER_TYPES`. Asumimos `User` por default,
+   asi que el chat de la PWA funciona sin cambios — pero BOA no, y el agente no
+   lo puede adivinar.
+
+### Un hueco de autorizacion que nos toca a ustedes
+
+`show`, `update` y `destroy` cargan con `SupportTicket.find(params[:id])`, sin
+filtrar por reporter. El shared secret autentica al **agente**, no al usuario
+que esta conversando con el: con ese header, cualquier id es accesible.
+
+Del lado del agente `ver_ticket` ya descarta un ticket cuyo `reporter` no sea
+el de la sesion, y ninguna tool acepta la identidad como argumento del modelo
+(sale del `session_state`). Pero eso es una mitigacion en el cliente: alcanza
+para que el modelo no filtre datos por su cuenta, no para que el endpoint sea
+seguro. El filtro de verdad va en el controller.
+
+Lo mismo aplica al `index` sin filtros: hoy devuelve tickets de todos los
+usuarios. Nosotros siempre mandamos `reporter_type` + `reporter_id`, pero nada
+en el endpoint lo obliga.

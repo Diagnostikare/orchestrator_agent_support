@@ -4,7 +4,9 @@ Opcion B de la arquitectura: core-api ya tiene el perfil en su propia DB
 cuando crea la sesion, asi que lo siembra en `session_state` en el POST a
 .../sessions. ADK lo mapea a `session.state` (ver ADK
 sessions/vertex_ai_session_service.py:193 y :215). El agente NO hace una
-llamada de vuelta a core-api: el dato llega ya resuelto.
+llamada de vuelta a core-api para esto: el dato llega ya resuelto. Lo que si
+viaja por HTTP son los tickets (tools/support_tickets.py), que no existen
+todavia cuando se abre la sesion.
 
 Contrato esperado en session_state:
 

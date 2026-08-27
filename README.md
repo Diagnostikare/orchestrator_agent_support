@@ -11,7 +11,9 @@ cliente -> core-api -> Vertex AI Agent Engine -> este agente
 ```
 
 El perfil y la categoria del cliente llegan **sembrados en `session_state`**
-(opcion B de la arquitectura): el agente nunca llama de vuelta a core-api.
+(opcion B de la arquitectura): para leer al usuario, el agente nunca llama de
+vuelta a core-api. La excepcion son los tickets, que no existen cuando la
+sesion arranca — ver *Tickets* mas abajo.
 
 ## Arquitectura
 
@@ -33,6 +35,7 @@ CategoryRouter  (support_orquestador)   router determinista, sin LLM
 | `agent/ticket.py` | Clasificador de tickets con `output_schema` -> `agent_output` |
 | `agent/models.py` | `GlobalGemini`: modelo anclado a la location `global` |
 | `agent/tools/docs_search.py` | `buscar_documentacion` sobre Vertex AI Search |
+| `agent/tools/support_tickets.py` | Tickets contra core-api: consultar, ver y crear |
 
 Decisiones no obvias (por que un router a mano y no delegacion LLM, por que
 una function tool y no `VertexAiSearchTool`, por que segments y no answers)
@@ -61,6 +64,33 @@ Ambos agentes conversacionales y el clasificador comparten
 corresponde a la categoria. La busqueda se ejecuta client-side a proposito:
 asi queda como `tool_use` + `tool_response` y es auditable por `adk eval`.
 
+### Tickets: la unica llamada de vuelta a core-api
+
+El perfil llega sembrado en `session_state` (opcion B) porque core-api ya lo
+tiene cuando abre la sesion. Un ticket no existe todavia cuando la sesion
+arranca —lo crea la conversacion—, asi que no hay nada que sembrar: para eso
+si hay tres llamadas HTTP contra
+`/api/v1/agents/support_tickets`, autenticadas con `X-Agent-Secret`.
+
+| Tool | Endpoint | Para que |
+| --- | --- | --- |
+| `consultar_mis_tickets` | `GET /` filtrado por reporter | "como va lo que reporte" |
+| `ver_ticket` | `GET /:id` | detalle de un ticket que el usuario menciono |
+| `crear_ticket` | `POST /` | abrir uno cuando la documentacion no alcanzo |
+
+`PATCH` y `DELETE` existen en el CRUD y **no** se exponen a proposito: un
+modelo no borra tickets ni reescribe el asunto de uno ya clasificado.
+
+**La identidad nunca es un argumento de la tool**: sale del `session_state`.
+Si el modelo pudiera pasar un `reporter_id` cualquiera, "muestrame los tickets
+del usuario 12" leeria los de otra persona. Por la misma razon `ver_ticket`
+comprueba que el ticket devuelto sea del reporter de la sesion — el filtro de
+verdad le toca a core-api, esto es la segunda linea.
+
+Sin dependencias nuevas (`urllib.request` de la stdlib): el runtime desplegado
+es exactamente `agent/requirements.txt` y no vale sumarle un cliente HTTP por
+tres llamadas.
+
 ## Setup local
 
 ```bash
@@ -78,6 +108,8 @@ python3 -m venv .venv
 | `DOCS_DATASTORE_STANDARD` | `orquestor-support-collection_documents` | |
 | `DOCS_DATASTORE_MEDICAL` | igual al anterior | hoy no hay docs restringidas a medicos |
 | `DATASTORE_LOCATION` | `global` (default) | opcional |
+| `CORE_API_BASE_URL` | `https://<host de core-api>` | sin slash final; sin esto las tools de tickets responden `no_configurado` |
+| `AGENT_API_SECRET` | el mismo valor que en core-api | shared secret del header `X-Agent-Secret` |
 
 Credenciales:
 
