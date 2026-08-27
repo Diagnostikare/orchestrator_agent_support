@@ -4,7 +4,7 @@ Por que un BaseAgent a mano y no `LlmAgent(sub_agents=[...])`:
 
 La delegacion nativa de ADK es LLM-driven — el modelo raiz lee el `description`
 de cada hijo y llama `transfer_to_agent`. Eso es lo correcto cuando hay que
-INFERIR a quien le toca. Aca no hay nada que inferir: core-api ya sembro la
+INFERIR a quien le toca. Aqui no hay nada que inferir: core-api ya sembro la
 categoria en `session_state` (opcion B). Rutear con el LLM entonces solo agrega
 un turno de latencia, costo de tokens, y una forma de fallar que no existiria.
 
@@ -22,19 +22,27 @@ from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events import Event
 from google.adk.utils.context_utils import Aclosing
 
-from .profile import read_category
+from .profile import read_category, read_task
 
 logger = logging.getLogger(__name__)
 
 
 class CategoryRouter(BaseAgent):
-    """Delega al sub-agente que corresponde a la categoria del cliente.
+    """Delega al sub-agente que corresponde a la sesion.
+
+    Primero mira la TAREA (`state["task"]`): hay endpoints que no son una
+    conversacion —hoy la clasificacion de tickets— y ahi la categoria del
+    cliente no decide nada, el contrato de salida si. Solo si no hay tarea
+    se rutea por categoria.
 
     Attributes:
+      task_routes: tarea (normalizada) -> nombre del sub-agente. Tiene
+        precedencia sobre `routes`.
       routes: categoria (normalizada, minusculas) -> nombre del sub-agente.
       fallback: sub-agente a usar si la categoria falta o es desconocida.
     """
 
+    task_routes: dict[str, str] = {}
     routes: dict[str, str] = {}
     fallback: str = ""
 
@@ -45,6 +53,19 @@ class CategoryRouter(BaseAgent):
         routing —que es la parte critica— sea testeable sin gastar una llamada
         al modelo ni depender de su respuesta.
         """
+        task = read_task(state)
+        if task is not None:
+            target_name = self.task_routes.get(task)
+            if target_name is not None:
+                return target_name
+            # Tarea nueva en core-api que este arbol todavia no atiende. Se
+            # sigue por categoria (la conversacion de soporte) en vez de
+            # cortar, pero es un bug de integracion: el caller espera otro
+            # contrato de salida y va a recibir texto libre.
+            logger.warning(
+                "tarea %r desconocida; ruteando por categoria", task
+            )
+
         category = read_category(state)
         target_name = self.routes.get(category or "", self.fallback)
 

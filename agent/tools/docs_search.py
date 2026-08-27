@@ -99,8 +99,8 @@ def buscar_documentacion(consulta: str, tool_context: ToolContext) -> dict:
             "status": "no_configurado",
             "pasajes": [],
             "detalle": (
-                "La busqueda en documentacion no esta configurada. Deci que no "
-                "podes verificarlo y ofrece abrir un ticket."
+                "La busqueda en documentacion no esta configurada. Di que no "
+                "puedes verificarlo y ofrece abrir un ticket."
             ),
         }
 
@@ -109,12 +109,21 @@ def buscar_documentacion(consulta: str, tool_context: ToolContext) -> dict:
         query=consulta,
         page_size=MAX_RESULTS,
         content_search_spec=discoveryengine.SearchRequest.ContentSearchSpec(
-            # Los extractive answers son los fragmentos textuales del documento.
-            # Con 1 el modelo no encontraba el dato y reintentaba la busqueda
-            # 5 veces reformulando; con 3 resuelve en una.
-            # Sin esto solo vuelven metadatos y no hay nada que citar.
+            # SEGMENTS, no answers. Los extractive *answers* son fragmentos
+            # cortos: vienen con `<b>` de resaltado y se cortan con "..." a
+            # ~380 chars. En un dato que vive en una tabla eso es peor que no
+            # traer nada — pidiendo la matriz de severidad del SLA volvia
+            # "Critico (S1) ... Alto (S2) Funcionalidad ..." y el modelo
+            # asignaba prioridad sin haber visto S3 ni S4.
+            # Los *segments* son el bloque completo del documento (~2.6k chars
+            # en ese caso), en texto plano y sin truncar: la tabla entera.
+            # `num_previous/next_segments` quedan en 0: el segmento propio ya
+            # trae su seccion completa y el contexto vecino solo infla tokens.
             extractive_content_spec=discoveryengine.SearchRequest.ContentSearchSpec.ExtractiveContentSpec(
-                max_extractive_answer_count=3
+                max_extractive_segment_count=2,
+                # Answers como respaldo: si un documento no produce segments,
+                # es preferible un fragmento corto a no citar nada.
+                max_extractive_answer_count=3,
             )
         ),
     )
@@ -122,7 +131,7 @@ def buscar_documentacion(consulta: str, tool_context: ToolContext) -> dict:
     try:
         response = _client().search(request)
     except Exception as exc:  # noqa: BLE001 - la tool nunca debe tirar
-        # Una excepcion aca aborta el turno del agente. Devolver un status de
+        # Una excepcion aqui aborta el turno del agente. Devolver un status de
         # error deja que el modelo se lo explique al usuario.
         logger.exception("busqueda fallida en %s", datastore_id)
         return {"status": "error", "pasajes": [], "detalle": str(exc)[:200]}
@@ -130,8 +139,14 @@ def buscar_documentacion(consulta: str, tool_context: ToolContext) -> dict:
     pasajes = []
     for result in response.results:
         data = dict(result.document.derived_struct_data or {})
-        for answer in data.get("extractive_answers", []):
-            texto = dict(answer).get("content", "").strip()
+        # Por documento: los segments si los hay, y solo si no, los answers.
+        # Nunca los dos — el answer suele ser un recorte del mismo segment y
+        # mandarlo duplicado solo repite el dato en el contexto del modelo.
+        fragmentos = data.get("extractive_segments") or data.get(
+            "extractive_answers", []
+        )
+        for fragmento in fragmentos:
+            texto = dict(fragmento).get("content", "").strip()
             if texto:
                 pasajes.append(
                     {

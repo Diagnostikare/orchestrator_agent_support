@@ -40,3 +40,17 @@ def read_category(state: dict[str, Any]) -> str | None:
         return None
     category = profile.get("category")
     return category.strip().lower() if isinstance(category, str) else None
+
+
+# Que le estan pidiendo a la sesion. La conversacion de soporte no manda nada
+# (ausente == charla normal); el endpoint de tickets siembra
+# session_state["task"] = "ticket_classification" al crear la sesion, y eso es
+# lo unico que separa un turno de clasificacion de uno conversacional.
+TASK_KEY = "task"
+TASK_TICKET = "ticket_classification"
+
+
+def read_task(state: dict[str, Any]) -> str | None:
+    """Tarea sembrada por core-api, normalizada, o None si es conversacion."""
+    task = state.get(TASK_KEY)
+    return task.strip().lower() or None if isinstance(task, str) else None

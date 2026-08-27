@@ -7,6 +7,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# El agente ancla su modelo a `global` en codigo (models.py), pero el JUEZ de
+# `adk eval` se crea con la location del ambiente: con us-central1 —lo que pide
+# .env para el deploy— cada llamada al juez tira 404 y los casos terminan en
+# estado 3 (NOT_EVALUATED) sin un solo "FAILED" a la vista. Se veia igual que
+# una corrida sana. Aqui la pisamos: es solo el proceso de eval, no el deploy.
+export GOOGLE_CLOUD_LOCATION=global
+
 echo "=== grounded (fundamentacion + acierto) ==="
 .venv/bin/adk eval agent evals/grounded.evalset.json \
   --config_file_path evals/grounded.config.json "$@"

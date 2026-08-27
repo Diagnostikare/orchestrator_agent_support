@@ -1,7 +1,7 @@
 """Modelo con la location fijada en codigo.
 
 Problema que resuelve: la region de DEPLOY y la region del MODELO son cosas
-distintas y aca no coinciden.
+distintas y aqui no coinciden.
 
   - Agent Engine: `AgentRegistry` en core-api arma la URL con `us-central1`
     hardcodeado, asi que el reasoningEngine tiene que vivir ahi.
@@ -9,7 +9,7 @@ distintas y aca no coinciden.
     `global` (verificado contra architecture-beta el 2026-08-26).
 
 Si dejaramos que el modelo tome la location del ambiente, el agente desplegado
-en us-central1 tiraria 404 en cada request. Fijandola aca, GOOGLE_CLOUD_LOCATION
+en us-central1 tiraria 404 en cada request. Fijandola aqui, GOOGLE_CLOUD_LOCATION
 queda libre para lo que Agent Engine necesite.
 
 Patron documentado en adk/models/google_llm.py:102-113.
