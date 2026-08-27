@@ -1,0 +1,42 @@
+{
+  "eval_set_id": "ticket",
+  "name": "Clasificacion de tickets",
+  "description": "Casos del endpoint de tickets (task=ticket_classification): la respuesta es el JSON de agent_output, no una conversacion. Se mide con rubricas sobre ese JSON y no con final_response_match_v2 solo: el match textual castiga variaciones de redaccion de enhanced_body que son igual de validas, y lo que importa es que no invente hechos y que la prioridad salga del SLA leido.",
+  "eval_cases": [
+    {
+      "eval_id": "whatsapp_asesoria_no_atendida_reagendar",
+      "session_input": {
+        "app_name": "agent",
+        "user_id": "36",
+        "state": {
+          "task": "ticket_classification",
+          "profile": {
+            "user_id": "36",
+            "category": "standard"
+          }
+        }
+      },
+      "conversation": [
+        {
+          "invocation_id": "1",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Asunto: Algo pasó con mi asesoría — Se cortó la llamada\nCanal: whatsapp\nContacto: Victor (+525539706542)\nMotivo: asesoria\nSubmotivo: se_corto\nSitio: saludgs\nEvidencias adjuntas: 0\n\nNunca recibi una llamada del doctor, estuve esperando y nada. acabo de ver que mi asesoria se marco como no atendida, como puedo programar otra? O reagendar ?"
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "{\"enhanced_subject\": \"Asesoria marcada como no atendida: el usuario nunca recibio la llamada del medico\", \"enhanced_body\": \"**Reporte del usuario**\\n\\nVictor (+525539706542) reporta por WhatsApp que nunca recibio la llamada del medico para su asesoria: estuvo esperando y no entro ninguna llamada. Despues vio que la asesoria quedo marcada como \\\"no atendida\\\". El motivo seleccionado en el flujo fue `asesoria` / submotivo `se_corto`, sitio `saludgs`. No adjunto evidencias (0).\\n\\n**Que esperaba**\\n\\nRecibir la llamada del medico en el horario de su asesoria. Pregunta como programar otra o reagendar.\\n\\n**Datos faltantes**\\n\\n- Fecha y hora programadas de la asesoria y folio o ID\\n- Numero y canal por el que esperaba la llamada\\n- Si la llamada entro y se corto, o si nunca entro (el submotivo dice `se_corto`, el texto dice que nunca llego)\\n- Si la asesoria fue cobrada\", \"classification\": \"scheduling\", \"priority\": \"high\"}"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

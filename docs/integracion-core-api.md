@@ -1,0 +1,312 @@
+# Conectar core-api al clasificador de tickets
+
+Instrucciones para el equipo de backend. Todo lo que sigue está verificado
+contra el engine desplegado el 2026-08-27, no es de memoria.
+
+---
+
+## 0. Estado: listo de nuestro lado
+
+El agente se redesplegó el **2026-08-27 a las 16:20** (hora local) sobre el
+engine `6890865320911699968`, el que core-api ya tiene configurado. El
+clasificador está arriba y verificado con un ticket real.
+
+Prueba end-to-end, con `task: "ticket_classification"` sembrado en el
+`sessionState`:
+
+```
+eventos: 3
+  0 author=support_ticket_classifier  function_call  -> buscar_documentacion
+  1 author=support_ticket_classifier  function_response
+  2 author=support_ticket_classifier  text           -> el JSON
+```
+
+```json
+{
+  "enhanced_subject": "Solicitud de reagendamiento de asesoría marcada como no atendida",
+  "enhanced_body": "### Reporte del Usuario\nEl usuario reporta que no recibió...",
+  "classification": "scheduling",
+  "priority": "low"
+}
+```
+
+Las cuatro llaves, `JSON.parse` limpio. Pueden empezar a integrar.
+
+Cómo confirman de su lado que están hablando con el clasificador y no con el
+agente conversacional: en la respuesta, `author` debe decir
+`support_ticket_classifier`. Si dice `support_standard`, el `sessionState` no
+llegó (ver §2) — ya no es el deploy.
+
+## 1. El contrato, en dos llamadas HTTP
+
+No hay tools, ni webhook, ni SDK. Son dos POST a Vertex AI Agent Engine.
+
+```
+POST {BASE}/sessions          -> crea la sesión y siembra el contexto
+POST {BASE}:streamQuery       -> manda el ticket y devuelve el JSON
+```
+
+```
+BASE = https://us-central1-aiplatform.googleapis.com/v1
+       /projects/77057647019/locations/us-central1
+       /reasoningEngines/6890865320911699968
+```
+
+`us-central1` no es negociable: `AgentRegistry` la tiene hardcodeada. El
+modelo corre en `global`, pero eso es interno del agente y no les afecta.
+
+Auth: el mismo `fetch_access_token` de `Api::V1::Agents::BaseController`
+(service account de `/gcp-config/key.json`, scope `cloud-platform`). No hace
+falta nada nuevo.
+
+---
+
+## 2. Paso 1 — crear la sesión CON `sessionState`
+
+Aquí está el cambio que sí les toca. Hoy `sessions_controller.rb:12` manda:
+
+```ruby
+req.body = { user_id: params[:user_id] }.to_json
+```
+
+Sin `sessionState`. El agente rutea por lo que encuentra en el state: sin
+`task`, cae al agente conversacional `support_standard` y devuelve prosa. Es
+la misma razón por la que hoy el chat nunca llega a `support_medical`.
+
+Lo que hay que mandar:
+
+```json
+{
+  "userId": "36",
+  "sessionState": {
+    "task": "ticket_classification",
+    "profile": { "user_id": "36", "category": "standard" }
+  }
+}
+```
+
+- `task: "ticket_classification"` — **obligatorio**. Es lo único que separa un
+  ticket de una conversación. Tiene precedencia sobre `profile.category`.
+- `profile` — opcional para tickets (el clasificador no lo usa). Mándenlo
+  igual: sirve para elegir el dataStore de documentación y para los logs.
+- `userId` va en el body de la sesión y en el `input` del streamQuery, y
+  **tienen que coincidir**.
+
+Respuesta real (recortada). El `sessionState` se refleja de vuelta, úsenlo
+para verificar que llegó:
+
+```json
+{
+  "done": true,
+  "response": {
+    "name": ".../sessions/2242458397255401472",
+    "sessionState": { "task": "ticket_classification", "profile": {...} },
+    "userId": "smoke-ticket"
+  }
+}
+```
+
+El `session_id` es el último segmento de `response.name`. El
+`extract_session_id` que ya tienen lo saca bien.
+
+---
+
+## 3. Paso 2 — mandar el ticket
+
+```json
+{
+  "classMethod": "async_stream_query",
+  "input": {
+    "user_id": "36",
+    "session_id": "2242458397255401472",
+    "message": "<el ticket renderizado, ver §4>"
+  }
+}
+```
+
+`classMethod` es obligatorio. El `build_request` del
+`StreamQueriesController` hoy no lo manda — funciona por default en el chat,
+pero pónganlo explícito aquí.
+
+**No usen el `StreamQueriesController` para esto.** Ese controller es SSE
+hacia el navegador del usuario. La clasificación es server-to-server, corre
+dentro de `SupportTickets::PushToGithubJob` y nadie está mirando el stream.
+Va en un service nuevo (`SupportTickets::Classify`) que hace la llamada y
+espera la respuesta completa.
+
+### Cómo leer la respuesta
+
+La respuesta son **objetos JSON separados por newline**, no SSE con prefijo
+`data:`. Un ticket produce ~3 eventos:
+
+| # | `author` | contenido |
+|---|---|---|
+| 0 | `support_ticket_classifier` | `function_call` → `buscar_documentacion` (lee el SLA) |
+| 1 | `support_ticket_classifier` | `function_response` con los pasajes |
+| 2 | `support_ticket_classifier` | `text` → **el JSON que buscan** |
+
+Reglas para extraerlo:
+
+1. Quédense con el **último** evento que traiga `content.parts[].text`. Los
+   dos primeros no tienen `text` y hay que ignorarlos.
+2. Ignoren `thought_signature` — viene en el mismo `part` que el texto y no es
+   contenido.
+3. `JSON.parse` de ese texto. El agente responde con `output_schema`, así que
+   el JSON está garantizado por el modelo, no por una instrucción de prompt.
+
+⚠️ **Cuidado con un bug que ya existe en `handle_chunk`:**
+
+```ruby
+parsed = JSON.parse(chunk) rescue nil
+return unless parsed
+```
+
+`chunk` es lo que trae la red, no una línea completa: un objeto JSON puede
+llegar partido en dos chunks y ese `rescue nil` lo descarta **en silencio**.
+En el chat se nota como texto faltante; aquí perderían el JSON entero y
+parecería que el agente no contestó. Acumulen en un buffer y partan por
+newline, o junten todo el body y recorran las líneas al final — que es lo
+más simple, porque aquí no necesitan streamear.
+
+---
+
+## 4. El formato del `message`
+
+El agente recibe **un string**, no el JSON del ticket. Ármenlo en Ruby: es
+testeable con un spec y evita meterle campos que no debe ver.
+
+```
+Asunto: {subject}
+Canal: {channel}
+Contacto: {contact_name} ({contact_id})
+Motivo: {metadata["motivo"]}
+Submotivo: {metadata["submotivo"]}      # omitir la línea si no viene
+Sitio: {metadata["site_slug"]}
+Evidencias adjuntas: {metadata["evidencia_count"]}
+
+{body}
+```
+
+Ejemplo real (ticket #2):
+
+```
+Asunto: Algo pasó con mi asesoría — Se cortó la llamada
+Canal: whatsapp
+Contacto: Victor (+525539706542)
+Motivo: asesoria
+Submotivo: se_corto
+Sitio: saludgs
+Evidencias adjuntas: 0
+
+Nunca recibi una llamada del doctor, estuve esperando y nada. acabo de ver
+que mi asesoria se marco como no atendida, como puedo programar otra? O
+reagendar ?
+```
+
+**No manden** `flow_token` (es un JWT con el teléfono dentro; no aporta y
+mete PII al contexto del modelo), ni `github_item_*`, ni los timestamps, ni
+el `id`.
+
+Si cambian este formato, avísennos: el eval del agente
+(`evals/ticket.evalset.json`) mide contra él, y si se desalinean estamos
+evaluando un input que no existe.
+
+---
+
+## 5. Qué devuelve y dónde va
+
+```json
+{
+  "enhanced_subject": "Reagendación de asesoría marcada como no atendida",
+  "enhanced_body": "El usuario reporta que no recibió la llamada...",
+  "classification": "scheduling",
+  "priority": "low"
+}
+```
+
+Cuatro campos, siempre los cuatro. Vocabularios cerrados:
+
+- `classification`: `billing` | `scheduling` | `technical` | `other`
+- `priority`: `low` | `medium` | `high`
+
+Eso se guarda **verbatim** en `support_tickets.agent_output` (jsonb). Al ser
+jsonb, si más adelante agregamos un campo no hay migración: aparece solo.
+
+Del lado de core-api ya está todo escrito y esperando. En
+`app/services/support_tickets/push_to_github.rb` el hueco es literal:
+
+```ruby
+def classify!
+  # no-op until the agent is implemented
+end
+```
+
+Se llena con lo que el propio comentario de arriba ya declara:
+
+```ruby
+@ticket.update!(agent_output: SupportTickets::Classify.call(ticket: @ticket))
+```
+
+Y de ahí para abajo no hay que tocar nada: `SupportTicket#enhanced_subject`,
+`#enhanced_body` y `#classification` ya leen de `agent_output` con fallback al
+raw, y `board_fields` ya mapea `priority` al single-select del board.
+
+### Manejo de errores
+
+El comentario del código ya fija la política y estamos de acuerdo: **nunca
+bloquear el flujo**. Si el agente falla (timeout, 404, JSON inválido), dejen
+`agent_output` en `NULL`, loguéenlo, y que el item se cree con el texto raw.
+Los fallbacks del modelo hacen que todo lo de abajo siga funcionando.
+
+Un `priority` que el campo del board no ofrezca se loguea y se salta, nunca
+se levanta excepción — eso también ya está resuelto en `board_fields`.
+
+---
+
+## 6. Probarlo a mano, sin escribir código
+
+```bash
+BASE="https://us-central1-aiplatform.googleapis.com/v1/projects/77057647019/locations/us-central1/reasoningEngines/6890865320911699968"
+TOKEN=$(gcloud auth print-access-token)
+
+# 1) sesión con el state sembrado
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  "$BASE/sessions" \
+  -d '{"userId":"smoke","sessionState":{"task":"ticket_classification"}}'
+
+# 2) el ticket (con el sessionId del paso anterior)
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  "${BASE}:streamQuery?alt=sse" \
+  -d '{"classMethod":"async_stream_query","input":{"user_id":"smoke","session_id":"<SESSION_ID>","message":"Asunto: prueba\nCanal: whatsapp\nContacto: Test (+520000000000)\nMotivo: asesoria\nSitio: saludgs\nEvidencias adjuntas: 0\n\nNo me llamo el doctor"}}'
+```
+
+En zsh, `${BASE}:streamQuery` con llaves: sin ellas, `$BASE:s` se come el
+`:streamQuery` como modificador de historial y el curl pega contra la URL
+base — da un 404 que parece del engine y no lo es.
+
+### Checklist de diagnóstico
+
+| Síntoma | Causa |
+|---|---|
+| `author: "support_standard"`, respuesta en prosa | no llegó `sessionState.task` (§2) |
+| 404 en el `:streamQuery` | la URL perdió el `:streamQuery` (llaves en zsh) o el engine id está mal |
+| `JSON.parse` truena | tomaron el primer evento en vez del último, o el chunk venía partido (§3) |
+| `status: "error"` en el `function_response` | permisos del service agent sobre el dataStore — es nuestro, avísennos |
+| respuesta vacía | `user_id` del streamQuery ≠ `userId` de la sesión |
+
+---
+
+## 7. Resumen de lo que le toca a cada quien
+
+**Equipo del agente (nosotros)** — hecho
+
+1. ~~Redesplegar el engine `6890865320911699968` con el clasificador.~~
+   Desplegado y verificado el 2026-08-27 16:20.
+
+**Equipo de backend (ustedes)**
+
+1. `sessions_controller`: aceptar y mandar `sessionState`.
+2. `SupportTickets::Classify` — service nuevo, server-to-server, sin SSE.
+3. `push_to_github.rb`: llenar `classify!` con la línea que ya está en el
+   comentario.
+4. Confirmarnos el formato final del `message` (§4) para alinear el eval.
