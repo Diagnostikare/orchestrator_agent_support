@@ -394,3 +394,61 @@ seguro. El filtro de verdad va en el controller.
 Lo mismo aplica al `index` sin filtros: hoy devuelve tickets de todos los
 usuarios. Nosotros siempre mandamos `reporter_type` + `reporter_id`, pero nada
 en el endpoint lo obliga.
+
+---
+
+## 10. Configuracion por ambiente (lo que le toca al backend)
+
+Verificado contra `architecture-beta` el 2026-08-27.
+
+### A que engine debe apuntar
+
+```
+CORA_SUPPORT_AGENT_ID = 6890865320911699968
+```
+
+Ese es `Soporte Diagnostikare`, el que tiene el router por `task` y el
+`support_ticket_classifier`.
+
+Hoy **los dos servicios de beta apuntan a otro**:
+
+| Servicio | Rama | Engine configurado |
+| --- | --- | --- |
+| `core-api` | `develop` | `4243666832227041280` — `cora-support-assistant`, del 2026-05-05 |
+| `core-api-stage` | `stage` | `4243666832227041280` — el mismo |
+
+`cora-support-assistant` es el agente viejo: no conoce `session_state.task`, asi
+que contesta como conversacion. El sintoma es el de §2 — `author:
+support_standard`, `agent_output` en NULL y el item creado con el texto raw. No
+falla ruidosamente, simplemente nunca clasifica.
+
+⚠️ Esa variable la comparte el chat (`StreamQueriesController`). Cambiarla mueve
+tambien el chat de beta al engine nuevo. Es lo correcto —el nuevo trae
+`standard`, `medical` y el clasificador— pero es un cambio de comportamiento,
+no solo de configuracion.
+
+**En produccion no existe el clasificador todavia**: `architecture-production`
+solo tiene `cora-support-assistant` (`6733783592209481728`, del 2026-05-06).
+Esto se prueba en beta o no se prueba.
+
+### Variables
+
+| Variable | Valor | Si falta |
+| --- | --- | --- |
+| `CORA_SUPPORT_AGENT_ID` | `6890865320911699968` | clasifica el agente viejo: `agent_output` NULL |
+| `STACK_ID` | `beta` (ya esta) | la URL se arma contra `architecture-production` |
+| `AGENT_API_SECRET` | generar, mismo valor que en `agent/.env` | el CRUD del agente responde 401 |
+| `WHATSAPP_FLOW_TOKEN_SECRET` | ya esta en `core-api`; **falta en `core-api-stage`** | `ENV.fetch` lanza `KeyError` al firmar el token: el Flow de soporte no abre |
+| `GITHUB_ACCESS_TOKEN` | PAT o token de App con acceso a Projects | el push falla, el ticket queda en `pending_github_push` |
+| `GITHUB_PROJECT_OWNER` | `Diagnostikare` | idem |
+| `GITHUB_PROJECT_NUMBER` | el numero del board | idem |
+| `GITHUB_PROJECT_INITIAL_STATUS` | opcional, default `To triage` | si el board no tiene una opcion con ese nombre exacto, el item se crea **sin** Status (se loguea, no truena) |
+
+Del lado del agente, en `agent/.env` (que `adk deploy` sube como environment del
+reasoningEngine): `CORE_API_BASE_URL` y el **mismo** `AGENT_API_SECRET`.
+
+### Donde probar
+
+En el servicio **`core-api`** de beta (rama `develop`), no en `core-api-stage`:
+es el unico que ya tiene `WHATSAPP_FLOW_TOKEN_SECRET`, y sin eso el Flow —que
+es la puerta de entrada del ticket— ni siquiera abre.
