@@ -373,7 +373,21 @@ desde `agent/tools/support_tickets.py`, y los agentes conversacionales
    usuario que no puede registrar su reporte. Pasenoslo por el canal de
    siempre, no por aqui.
 2. **`CORE_API_BASE_URL`** por ambiente (beta y produccion). Sin slash final.
-3. **`profile.reporter_type` en el `sessionState`.** Hoy sembramos `user_id` y
+3. **`profile.contact_id` para el invitado.** La burbuja de la PWA le pide el
+   telefono o el correo antes de empezar y lo manda en el `POST .../sessions`;
+   siembrenlo como `profile.contact_id` **solo cuando no haya usuario
+   autenticado** —con sesion la identidad ya la resuelven ustedes y un
+   `contact_id` del cuerpo solo podria contradecirla—. Sin el, `SupportTicket`
+   rechaza el ticket del invitado (`contact_id` es obligatorio cuando falta
+   `reporter_type`) y el agente corta con `sin_perfil`.
+
+   Es identidad **afirmada, no verificada**: nadie mando un OTP a ese numero.
+   Por eso el agente la acepta para CREAR un ticket pero no para listarlos
+   (`consultar_mis_tickets` y `ver_ticket` devuelven `requiere_sesion`): el
+   `index` filtra por `contact_id`, y con una identidad que el cliente elige,
+   escribir el telefono de otro seria leer sus reportes.
+
+4. **`profile.reporter_type` en el `sessionState`.** Hoy sembramos `user_id` y
    `category`; para `create` hace falta saber si es `User` o `ApiUser`, que es
    lo que valida `SupportTicket::REPORTER_TYPES`. Asumimos `User` por default,
    asi que el chat de la PWA funciona sin cambios — pero BOA no, y el agente no

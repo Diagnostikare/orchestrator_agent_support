@@ -95,6 +95,71 @@ def test_reporter_type_lo_manda_core_api_cuando_no_es_un_user(llamadas, configur
     assert llamadas[0]["cuerpo"]["reporter_type"] == "ApiUser"
 
 
+# --- invitado: identidad por contacto ---------------------------------------
+
+# Lo que core-api siembra para quien abre la burbuja sin sesion: el telefono o
+# el correo que el mismo escribio, ya normalizado, y ningun `user_id`.
+PROFILE_INVITADO = {
+    "contact_id": "+525539706542",
+    "category": "standard",
+    "site_id": 7,
+    "site_slug": "saludgs",
+}
+
+
+def contexto_invitado():
+    return FakeContext({"profile": dict(PROFILE_INVITADO)})
+
+
+def test_invitado_puede_abrir_ticket_con_su_contacto(llamadas, configurado):
+    st.crear_ticket("No me llego la receta", "La espere todo el dia", "sin_receta", "",
+                    contexto_invitado())
+
+    cuerpo = llamadas[0]["cuerpo"]
+    assert cuerpo["contact_id"] == "+525539706542"
+    # Sin reporter: `SupportTicket` solo exige `contact_id` cuando falta, y
+    # mandar los dos dejaria a core-api eligiendo a quien atribuirlo.
+    assert "reporter_type" not in cuerpo
+    assert "reporter_id" not in cuerpo
+
+
+def test_el_usuario_con_sesion_no_manda_contact_id(llamadas, configurado):
+    st.crear_ticket("Asunto", "Detalle", "otro", "", FakeContext())
+
+    cuerpo = llamadas[0]["cuerpo"]
+    assert cuerpo["reporter_id"] == "36"
+    assert "contact_id" not in cuerpo
+
+
+@pytest.mark.parametrize(
+    "tool, args",
+    [
+        (st.consultar_mis_tickets, ()),
+        (st.ver_ticket, (5,)),
+    ],
+)
+def test_el_invitado_no_puede_leer_tickets(tool, args, llamadas, configurado):
+    """Un contacto afirmado no es prueba de identidad.
+
+    `index` de core-api filtra por `contact_id`: si esto pasara, escribir el
+    telefono de otra persona en la burbuja devolveria sus reportes.
+    """
+    resultado = tool(*args, contexto_invitado())
+
+    assert resultado["status"] == "requiere_sesion"
+    assert llamadas == []
+
+
+def test_el_log_del_invitado_no_lleva_su_contacto(llamadas, configurado, caplog):
+    llamadas.responder({"status": "ok", "data": {"id": 12}})
+
+    with caplog.at_level("INFO"):
+        st.crear_ticket("Asunto", "Detalle", "otro", "", contexto_invitado())
+
+    assert "+525539706542" not in caplog.text
+    assert "invitado" in caplog.text
+
+
 # --- consultar_mis_tickets --------------------------------------------------
 
 

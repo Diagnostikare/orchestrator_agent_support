@@ -52,6 +52,9 @@ _TICKET_RULES = (
     "creacion del ticket por clasificarlo.\n"
     "- Para el estado de un reporte previo usa `consultar_mis_tickets`, y "
     "`ver_ticket` solo con un numero que el usuario haya dado.\n"
+    "- Si esas dos devuelven \"requiere_sesion\", el usuario esta como "
+    "invitado: dile que para ver reportes anteriores inicie sesion en la app, "
+    "y ofrecele abrir uno nuevo, que si puedes.\n"
     "- No puedes cerrar, borrar ni modificar tickets. Si lo piden, dilo."
 )
 

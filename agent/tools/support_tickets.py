@@ -129,22 +129,29 @@ def _no_configurado(faltante: str) -> dict:
 def _identidad(state: dict[str, Any]) -> dict[str, Any] | None:
     """Quien es el usuario, segun lo que core-api sembro. None si no vino.
 
-    `reporter_type` es parte del contrato de sembrado porque core-api valida
-    contra una allowlist (`SupportTicket::REPORTER_TYPES`): el chat de la PWA
-    es de `User`, pero BOA manda `ApiUser` y el agente no puede adivinarlo.
+    Hay dos identidades posibles y core-api decide cual siembra:
+
+      * **Con sesion** — `user_id`, resuelto del token de devise. Es identidad
+        VERIFICADA: core-api la saco de su propia base, el cliente no la toca.
+        `reporter_type` es parte del contrato de sembrado porque core-api valida
+        contra una allowlist (`SupportTicket::REPORTER_TYPES`): el chat de la
+        PWA es de `User`, pero BOA manda `ApiUser` y el agente no puede
+        adivinarlo.
+      * **Invitado** — `contact_id`, el telefono o el correo que el propio
+        usuario escribio en la burbuja. Es un dato AFIRMADO: nadie lo verifico
+        con un OTP. Alcanza para abrir un ticket —sin el, `SupportTicket` lo
+        rechaza y el reporte no tendria por donde responderse—, pero no para
+        leer tickets: ver `verificada`.
+
+    `verificada` es lo que separa a las dos, y las tools de lectura lo exigen.
+    Sin eso bastaria con escribir el telefono de otra persona para que el
+    `index` de core-api —que filtra por `contact_id`— devolviera sus reportes.
     """
     profile = read_profile(state)
     if not profile:
         return None
 
-    user_id = profile.get("user_id")
-    if user_id in (None, ""):
-        return None
-
-    reporter_type = profile.get("reporter_type") or "User"
-    return {
-        "reporter_type": str(reporter_type),
-        "reporter_id": str(user_id),
+    comun = {
         "contact_name": profile.get("name"),
         "site_id": profile.get("site_id"),
         # `SupportTicket.for_site` filtra por `metadata->>'site_slug'`, no por
@@ -153,17 +160,83 @@ def _identidad(state: dict[str, Any]) -> dict[str, Any] | None:
         "site_slug": profile.get("site_slug"),
     }
 
+    user_id = profile.get("user_id")
+    if user_id not in (None, ""):
+        reporter_type = profile.get("reporter_type") or "User"
+        return {
+            **comun,
+            "verificada": True,
+            "reporter_type": str(reporter_type),
+            "reporter_id": str(user_id),
+            "contact_id": None,
+        }
+
+    contact_id = profile.get("contact_id")
+    if contact_id in (None, ""):
+        return None
+
+    return {
+        **comun,
+        "verificada": False,
+        "reporter_type": None,
+        "reporter_id": None,
+        "contact_id": str(contact_id),
+    }
+
+
+def _atribucion(identidad: dict[str, Any]) -> dict[str, Any]:
+    """Los campos con los que el ticket queda atado a alguien."""
+    if identidad["verificada"]:
+        return {
+            "reporter_type": identidad["reporter_type"],
+            "reporter_id": identidad["reporter_id"],
+        }
+    return {"contact_id": identidad["contact_id"]}
+
+
+def _etiqueta(identidad: dict[str, Any]) -> str:
+    """Como se nombra a este usuario en los logs. Sin PII del invitado.
+
+    El `contact_id` es un telefono o un correo: escribirlo en el log lo replica
+    en Cloud Logging, fuera del ciclo de vida del ticket. Para leer una traza
+    alcanza con saber que fue un invitado.
+    """
+    if identidad["verificada"]:
+        return f"{identidad['reporter_type']}#{identidad['reporter_id']}"
+    return "invitado"
+
 
 def _sin_perfil() -> dict:
     # Ausente == error de integracion, igual que en profile.py. Un ticket sin
     # reporter y sin contact_id lo rechazaria la validacion de core-api de
     # todos modos, asi que se corta aca con un mensaje que el modelo pueda usar.
-    logger.warning("session_state sin profile.user_id: no hay a quien atribuir el ticket")
+    logger.warning(
+        "session_state sin profile.user_id ni profile.contact_id: "
+        "no hay a quien atribuir el ticket"
+    )
     return {
         "status": "sin_perfil",
         "detalle": (
             "No se puede identificar al usuario en esta sesion. Pidele que "
             "escriba a soporte por su canal habitual."
+        ),
+    }
+
+
+def _requiere_sesion() -> dict:
+    """El invitado identificado solo por su contacto no puede LEER tickets.
+
+    Distinto de `sin_perfil`: aqui si sabemos como responderle, lo que no
+    tenemos es prueba de que ese contacto sea suyo. Como el `index` de core-api
+    filtra por `contact_id`, devolver la lista convertiria "escribi el telefono
+    de otro" en "leo sus reportes". Crear si puede: un ticket mal atribuido solo
+    desvia el reporte de quien lo abrio.
+    """
+    return {
+        "status": "requiere_sesion",
+        "detalle": (
+            "Para consultar reportes anteriores el usuario tiene que iniciar "
+            "sesion en la app. Puedes abrirle uno nuevo sin que inicie sesion."
         ),
     }
 
@@ -234,13 +307,16 @@ def consultar_mis_tickets(tool_context: ToolContext) -> dict:
     identidad sale de la sesion.
 
     Returns:
-      status: "ok" | "sin_tickets" | "sin_perfil" | "no_configurado" | "error".
+      status: "ok" | "sin_tickets" | "sin_perfil" | "requiere_sesion" |
+        "no_configurado" | "error".
       tickets: lista de {id, enhanced_subject, classification, channel,
         pending_github_push, created_at}, del mas reciente al mas viejo.
     """
     identidad = _identidad(tool_context.state)
     if not identidad:
         return _sin_perfil()
+    if not identidad["verificada"]:
+        return _requiere_sesion()
 
     respuesta = _request("GET", PATH, params={
         "reporter_type": identidad["reporter_type"],
@@ -254,10 +330,7 @@ def consultar_mis_tickets(tool_context: ToolContext) -> dict:
         logger.error("index devolvio %s, se esperaba una lista", type(tickets).__name__)
         return _fallo({"status": "error"}, "consultar los tickets")
 
-    logger.info(
-        "consultar_mis_tickets(%s#%s) -> %d",
-        identidad["reporter_type"], identidad["reporter_id"], len(tickets),
-    )
+    logger.info("consultar_mis_tickets(%s) -> %d", _etiqueta(identidad), len(tickets))
     if not tickets:
         return {
             "status": "sin_tickets",
@@ -278,13 +351,16 @@ def ver_ticket(ticket_id: int, tool_context: ToolContext) -> dict:
       ticket_id: el numero del ticket (el campo `id`).
 
     Returns:
-      status: "ok" | "no_encontrado" | "sin_perfil" | "no_configurado" | "error".
+      status: "ok" | "no_encontrado" | "sin_perfil" | "requiere_sesion" |
+        "no_configurado" | "error".
       ticket: {id, enhanced_subject, enhanced_body, classification, channel,
         pending_github_push, created_at}.
     """
     identidad = _identidad(tool_context.state)
     if not identidad:
         return _sin_perfil()
+    if not identidad["verificada"]:
+        return _requiere_sesion()
 
     respuesta = _request("GET", f"{PATH}/{int(ticket_id)}")
     if respuesta["status"] != "ok":
@@ -300,8 +376,7 @@ def ver_ticket(ticket_id: int, tool_context: ToolContext) -> dict:
     if (str(ticket.get("reporter_id")) != identidad["reporter_id"]
             or ticket.get("reporter_type") != identidad["reporter_type"]):
         logger.warning(
-            "ticket %s no pertenece a %s#%s: no se devuelve",
-            ticket_id, identidad["reporter_type"], identidad["reporter_id"],
+            "ticket %s no pertenece a %s: no se devuelve", ticket_id, _etiqueta(identidad)
         )
         return {"status": "no_encontrado", "detalle": "No existe ese ticket."}
 
@@ -394,10 +469,12 @@ def crear_ticket(
         "subject": asunto[:255],
         "body": (detalle or "").strip() or None,
         "channel": "web",
-        "reporter_type": identidad["reporter_type"],
-        "reporter_id": identidad["reporter_id"],
         "contact_name": identidad["contact_name"],
         "metadata": _metadata(identidad, tool_context.state, motivo, submotivo),
+        # Uno o el otro, nunca los dos: con `reporter_type` presente core-api ya
+        # no exige `contact_id`, y mandar ambos dejaria al backend eligiendo a
+        # quien atribuir el ticket.
+        **_atribucion(identidad),
     }
 
     respuesta = _request("POST", PATH, cuerpo=cuerpo)
@@ -410,8 +487,5 @@ def crear_ticket(
         return _fallo(respuesta, "abrir el ticket")
 
     ticket = respuesta.get("data") or {}
-    logger.info(
-        "crear_ticket -> #%s para %s#%s",
-        ticket.get("id"), identidad["reporter_type"], identidad["reporter_id"],
-    )
+    logger.info("crear_ticket -> #%s para %s", ticket.get("id"), _etiqueta(identidad))
     return {"status": "ok", "ticket": _resumen(ticket)}
