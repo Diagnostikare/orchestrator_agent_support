@@ -38,11 +38,11 @@ import os
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any
+from typing import Any, Literal
 
 from google.adk.tools.tool_context import ToolContext
 
-from ..profile import read_profile
+from ..profile import read_client_context, read_profile
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +65,42 @@ CAMPOS_VISIBLES = (
     "pending_github_push",
     "created_at",
 )
+
+
+# La misma taxonomia del Flow de WhatsApp (`MOTIVO -> ASESORIA -> DETALLE`) y de
+# los accesos rapidos de la burbuja de la PWA (`lib/support/quickActions.ts`).
+# Los tres canales tienen que coincidir literal: es la llave con la que soporte
+# compara "se corto la llamada" en WhatsApp contra el mismo caso en la app, y un
+# `se_corto` de un lado contra un `llamada_cortada` del otro parte el reporte en
+# dos sin que nadie se entere.
+#
+# En WhatsApp esto sale de botones y llega ya estructurado. En el chat no hay
+# formulario, asi que lo llena el modelo desde la conversacion — de ahi que sea
+# una lista cerrada y no texto libre: el valor sirve para agrupar en el board, y
+# un enum que el modelo puede ampliar a voluntad no agrupa nada.
+TAXONOMIA: dict[str, tuple[str, ...]] = {
+    "asesoria": ("no_entra", "se_corto", "sin_atencion", "otro"),
+    "sin_receta": (),
+    "otro": (),
+}
+
+MOTIVO_POR_DEFECTO = "otro"
+
+# Los mismos valores de TAXONOMIA, como `Literal` para que ADK los publique como
+# `enum` en el schema de la tool y el modelo no pueda emitir otra cosa. No se
+# derivan del dict porque `Literal` necesita constantes: `test_taxonomia.py` es
+# quien impide que las dos definiciones se separen.
+#
+# `_clasificar` sigue validando igual. El enum cubre el valor suelto; lo que no
+# puede expresar es la dependencia entre los dos campos —`se_corto` solo existe
+# bajo `asesoria`— y esa es justo la equivocacion que un modelo comete.
+Motivo = Literal["asesoria", "sin_receta", "otro"]
+Submotivo = Literal["", "no_entra", "se_corto", "sin_atencion", "otro"]
+
+# Claves de `client_context` que se copian a la metadata del ticket. Allowlist y
+# no un `update()` del dict completo: el contexto lo arma el cliente, y aunque
+# core-api ya lo sanea, la metadata termina renderizada en el issue de GitHub.
+CONTEXTO_EN_METADATA = ("route", "app_version", "device", "chat_surface")
 
 
 # --- configuracion ----------------------------------------------------------
@@ -111,6 +147,10 @@ def _identidad(state: dict[str, Any]) -> dict[str, Any] | None:
         "reporter_id": str(user_id),
         "contact_name": profile.get("name"),
         "site_id": profile.get("site_id"),
+        # `SupportTicket.for_site` filtra por `metadata->>'site_slug'`, no por
+        # site_id: sin el slug el ticket existe pero no aparece cuando soporte
+        # filtra por sitio en el board.
+        "site_slug": profile.get("site_slug"),
     }
 
 
@@ -270,7 +310,51 @@ def ver_ticket(ticket_id: int, tool_context: ToolContext) -> dict:
     return {"status": "ok", "ticket": detalle}
 
 
-def crear_ticket(asunto: str, detalle: str, tool_context: ToolContext) -> dict:
+def _clasificar(motivo: str, submotivo: str) -> tuple[str, str | None]:
+    """Encaja lo que dijo el modelo en TAXONOMIA. Nunca falla.
+
+    Un motivo inventado degrada a "otro" y un submotivo que no pertenece al
+    motivo se descarta. A proposito no rechaza el ticket: el reporte del usuario
+    es el dato que importa y perderlo porque el modelo escribio "asesoría" con
+    acento seria cambiar un ticket mal etiquetado por ningun ticket.
+    """
+    motivo = (motivo or "").strip().lower()
+    submotivo = (submotivo or "").strip().lower()
+
+    if motivo not in TAXONOMIA:
+        if motivo:
+            logger.warning("motivo fuera de la taxonomia: %r -> %s", motivo, MOTIVO_POR_DEFECTO)
+        return MOTIVO_POR_DEFECTO, None
+
+    if submotivo and submotivo not in TAXONOMIA[motivo]:
+        logger.warning("submotivo %r no pertenece a %r: se descarta", submotivo, motivo)
+        return motivo, None
+
+    return motivo, submotivo or None
+
+
+def _metadata(identidad: dict, state: dict, motivo: str, submotivo: str | None) -> dict:
+    """Lo que acompaña al ticket en el board, sin claves vacias.
+
+    `None` fuera en vez de dentro: la metadata se renderiza en el issue de
+    GitHub, y un "Submotivo: —" hace pensar que el dato se perdio cuando lo que
+    pasa es que ese motivo no tiene segundo nivel.
+    """
+    contexto = read_client_context(state)
+    metadata = {
+        "origen": "chat",
+        "site_id": identidad["site_id"],
+        "site_slug": identidad["site_slug"],
+        "motivo": motivo,
+        "submotivo": submotivo,
+        **{k: contexto.get(k) for k in CONTEXTO_EN_METADATA},
+    }
+    return {k: v for k, v in metadata.items() if v not in (None, "")}
+
+
+def crear_ticket(
+    asunto: str, detalle: str, motivo: Motivo, submotivo: Submotivo, tool_context: ToolContext
+) -> dict:
     """Abre un ticket de soporte para este usuario.
 
     Usala cuando no puedas resolver algo con la documentacion y el usuario
@@ -280,6 +364,12 @@ def crear_ticket(asunto: str, detalle: str, tool_context: ToolContext) -> dict:
     Args:
       asunto: una linea que resuma el problema, en las palabras del usuario.
       detalle: el problema completo, con lo que el usuario ya intento.
+      motivo: uno de "asesoria" (algo paso con una asesoria), "sin_receta" (no
+        llego la receta ni los resultados) u "otro". Usa "otro" si dudas.
+      submotivo: solo cuando el motivo es "asesoria", uno de "no_entra" (no
+        pudo entrar a la llamada), "se_corto" (la llamada se corto),
+        "sin_atencion" (nadie lo atendio) u "otro". Cadena vacia en cualquier
+        otro caso. No lo inventes: si el usuario no lo dijo, mandalo vacio.
 
     Returns:
       status: "ok" | "invalido" | "sin_perfil" | "no_configurado" | "error".
@@ -296,6 +386,8 @@ def crear_ticket(asunto: str, detalle: str, tool_context: ToolContext) -> dict:
             "detalle": "Falta el asunto. Preguntale al usuario que resuma su problema.",
         }
 
+    motivo, submotivo = _clasificar(motivo, submotivo)
+
     # `channel: "web"` porque este agente atiende el chat. Los tickets de
     # WhatsApp los abre el Flow del lado de core-api, no pasan por aqui.
     cuerpo = {
@@ -305,7 +397,7 @@ def crear_ticket(asunto: str, detalle: str, tool_context: ToolContext) -> dict:
         "reporter_type": identidad["reporter_type"],
         "reporter_id": identidad["reporter_id"],
         "contact_name": identidad["contact_name"],
-        "metadata": {"origen": "chat", "site_id": identidad["site_id"]},
+        "metadata": _metadata(identidad, tool_context.state, motivo, submotivo),
     }
 
     respuesta = _request("POST", PATH, cuerpo=cuerpo)

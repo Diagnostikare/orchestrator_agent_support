@@ -452,3 +452,77 @@ reasoningEngine): `CORE_API_BASE_URL` y el **mismo** `AGENT_API_SECRET`.
 En el servicio **`core-api`** de beta (rama `develop`), no en `core-api-stage`:
 es el unico que ya tiene `WHATSAPP_FLOW_TOKEN_SECRET`, y sin eso el Flow —que
 es la puerta de entrada del ticket— ni siquiera abre.
+
+---
+
+## 11. La sesión conversacional de la PWA (implementado, 2026-09-03)
+
+Todo lo anterior es la sesión de **clasificación**, la que abre
+`SupportTickets::Classify` para un ticket que ya existe. Esta sección es la
+otra: la que abre el chat de la PWA, y que hasta ahora mandaba solo
+`{ user_id }`.
+
+El efecto de esa omisión no era cosmético. Sin `profile` en el `sessionState`:
+
+- el router cae siempre a `support_standard` (por eso el chat nunca llegaba a
+  `support_medical`), y
+- `crear_ticket` responde `sin_perfil` y **corta antes de tocar core-api**: no
+  hay a quién atribuir el ticket. Es decir, desde la PWA el agente no podía
+  abrir un ticket, y la `SupportTicketCard` del front nunca podía dispararse.
+
+### Lo que manda ahora `Api::V1::Agents::SessionsController`
+
+```json
+{
+  "user_id": "<id de la sesión de Vertex>",
+  "sessionState": {
+    "profile": {
+      "user_id": "36",
+      "reporter_type": "User",
+      "category": "standard",
+      "name": "Victor",
+      "site_id": 7,
+      "site_slug": "saludgs"
+    },
+    "client_context": {
+      "route": "/saludgs/es/appointments",
+      "app_version": "1.15.0",
+      "device": "Mozilla/5.0 (iPhone; …)",
+      "chat_surface": "support_bubble_app"
+    }
+  }
+}
+```
+
+Tres decisiones que conviene no deshacer:
+
+1. **`profile` sale de `current_user`, nunca del body.** El agente usa
+   `profile.user_id` como `reporter_id` del ticket y como filtro de "mis
+   tickets". Con ese id en manos del cliente, un `user_id` ajeno en el POST
+   leería los reportes de otra persona. `params[:user_id]` sigue siendo el id
+   de la sesión de Vertex —para el invitado, un uuid anónimo— y no sirve para
+   esto.
+2. **El invitado no manda `profile`.** Sin sesión no hay a quién atribuir nada,
+   y el agente ya degrada a `sin_perfil` sin romper la conversación. El cuerpo
+   queda como estaba.
+3. **`client_context` va aparte y con allowlist** (`CLIENT_CONTEXT_KEYS`,
+   recortado a 200 caracteres). Es telemetría que arma el navegador: no se
+   puede creer, y termina renderizada en el issue de GitHub. Del lado del
+   agente hay una segunda allowlist (`CONTEXTO_EN_METADATA`) por lo mismo.
+
+`site_slug` importa más de lo que parece: `SupportTicket.for_site` filtra por
+`metadata->>'site_slug'`, así que sin él el ticket se crea pero no aparece
+cuando soporte filtra por sitio en el board.
+
+### Del lado de la PWA
+
+`createSession` manda los headers de Devise (`access-token` / `client` / `uid`)
+y el `client_context`. Sin esos headers `current_user` es `nil` y la sesión se
+comporta como la de un invitado, aunque el usuario tenga sesión iniciada: es el
+primer lugar donde mirar si un ticket sale sin reporter.
+
+Ojo con un efecto secundario de mandarlos: `change_headers_on_each_request`
+está en su default (`true`), así que esta llamada **rota** el token. La PWA
+guarda el rotado de los headers de la respuesta, igual que hace su `ApiClient`.
+Sin eso, abrir el chat invalidaría el token guardado y la siguiente petición de
+la app daría 401 — es decir, abrir soporte cerraría la sesión.

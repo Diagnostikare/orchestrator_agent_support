@@ -13,7 +13,13 @@ import pytest
 
 from agent.tools import support_tickets as st
 
-PROFILE = {"user_id": "36", "category": "standard", "name": "Victor", "site_id": 7}
+PROFILE = {
+    "user_id": "36",
+    "category": "standard",
+    "name": "Victor",
+    "site_id": 7,
+    "site_slug": "saludgs",
+}
 
 
 class FakeContext:
@@ -66,7 +72,7 @@ def llamadas(monkeypatch):
 def test_sin_perfil_no_toca_core_api(state, llamadas, configurado):
     for tool, args in (
         (st.consultar_mis_tickets, ()),
-        (st.crear_ticket, ("No puedo entrar", "Me marca error")),
+        (st.crear_ticket, ("No puedo entrar", "Me marca error", "otro", "")),
         (st.ver_ticket, (5,)),
     ):
         resultado = tool(*args, FakeContext(state))
@@ -76,7 +82,7 @@ def test_sin_perfil_no_toca_core_api(state, llamadas, configurado):
 
 
 def test_reporter_type_por_defecto_es_user(llamadas, configurado):
-    st.crear_ticket("Asunto", "Detalle", FakeContext())
+    st.crear_ticket("Asunto", "Detalle", "otro", "", FakeContext())
 
     assert llamadas[0]["cuerpo"]["reporter_type"] == "User"
 
@@ -84,7 +90,7 @@ def test_reporter_type_por_defecto_es_user(llamadas, configurado):
 def test_reporter_type_lo_manda_core_api_cuando_no_es_un_user(llamadas, configurado):
     state = {"profile": {**PROFILE, "reporter_type": "ApiUser"}}
 
-    st.crear_ticket("Asunto", "Detalle", FakeContext(state))
+    st.crear_ticket("Asunto", "Detalle", "otro", "", FakeContext(state))
 
     assert llamadas[0]["cuerpo"]["reporter_type"] == "ApiUser"
 
@@ -170,7 +176,7 @@ def test_ver_ticket_404(llamadas, configurado):
 def test_crear_manda_el_ticket_con_la_identidad_de_la_sesion(llamadas, configurado):
     llamadas.responder({"status": "ok", "data": {"id": 12, "enhanced_subject": "No puedo entrar"}})
 
-    resultado = st.crear_ticket("No puedo entrar", "Me marca error 500", FakeContext())
+    resultado = st.crear_ticket("No puedo entrar", "Me marca error 500", "otro", "", FakeContext())
 
     assert resultado["ticket"]["id"] == 12
     assert llamadas[0]["cuerpo"] == {
@@ -180,23 +186,28 @@ def test_crear_manda_el_ticket_con_la_identidad_de_la_sesion(llamadas, configura
         "reporter_type": "User",
         "reporter_id": "36",
         "contact_name": "Victor",
-        "metadata": {"origen": "chat", "site_id": 7},
+        "metadata": {
+            "origen": "chat",
+            "site_id": 7,
+            "site_slug": "saludgs",
+            "motivo": "otro",
+        },
     }
 
 
 def test_crear_sin_asunto_no_llega_a_core_api(llamadas, configurado):
-    assert st.crear_ticket("   ", "detalle", FakeContext())["status"] == "invalido"
+    assert st.crear_ticket("   ", "detalle", "otro", "", FakeContext())["status"] == "invalido"
     assert llamadas == []
 
 
 def test_crear_recorta_el_asunto_al_limite_de_la_columna(llamadas, configurado):
-    st.crear_ticket("x" * 400, "detalle", FakeContext())
+    st.crear_ticket("x" * 400, "detalle", "otro", "", FakeContext())
 
     assert len(llamadas[0]["cuerpo"]["subject"]) == 255
 
 
 def test_crear_sin_detalle_manda_null_y_no_cadena_vacia(llamadas, configurado):
-    st.crear_ticket("Asunto", "   ", FakeContext())
+    st.crear_ticket("Asunto", "   ", "otro", "", FakeContext())
 
     assert llamadas[0]["cuerpo"]["body"] is None
 
@@ -204,13 +215,13 @@ def test_crear_sin_detalle_manda_null_y_no_cadena_vacia(llamadas, configurado):
 def test_crear_rechazado_por_validacion(llamadas, configurado):
     llamadas.responder({"status": "error", "codigo": 422, "detalle": "invalid"})
 
-    assert st.crear_ticket("Asunto", "Detalle", FakeContext())["status"] == "invalido"
+    assert st.crear_ticket("Asunto", "Detalle", "otro", "", FakeContext())["status"] == "invalido"
 
 
 def test_crear_con_core_api_caido_no_confirma_el_ticket(llamadas, configurado):
     llamadas.responder({"status": "error", "detalle": "connection refused"})
 
-    resultado = st.crear_ticket("Asunto", "Detalle", FakeContext())
+    resultado = st.crear_ticket("Asunto", "Detalle", "otro", "", FakeContext())
 
     assert resultado["status"] == "error"
     assert "ticket" not in resultado
@@ -230,7 +241,7 @@ def test_no_configurado_se_propaga_tal_cual_al_modelo(monkeypatch, configurado):
     """El modelo debe poder distinguir "no hay sistema" de "fallo la llamada"."""
     monkeypatch.delenv("AGENT_API_SECRET")
 
-    resultado = st.crear_ticket("Asunto", "Detalle", FakeContext())
+    resultado = st.crear_ticket("Asunto", "Detalle", "otro", "", FakeContext())
 
     assert resultado["status"] == "no_configurado"
 
@@ -280,3 +291,111 @@ def test_request_no_deja_escapar_un_fallo_de_red(monkeypatch, configurado):
     monkeypatch.setattr(st.urllib.request, "urlopen", fake_urlopen)
 
     assert st._request("GET", st.PATH)["status"] == "error"
+
+
+# --- clasificacion y metadata -----------------------------------------------
+#
+# El modelo es quien llena `motivo`/`submotivo` (en WhatsApp salen de botones,
+# aqui de la conversacion), asi que lo que se prueba es lo contrario de lo
+# habitual: no que clasifique bien —eso es el evalset— sino que clasificar mal
+# nunca cueste el ticket.
+
+
+def test_clasificacion_valida_viaja_a_la_metadata(llamadas, configurado):
+    st.crear_ticket("Se cayo la llamada", "A mitad de la asesoria", "asesoria", "se_corto", FakeContext())
+
+    metadata = llamadas[0]["cuerpo"]["metadata"]
+    assert metadata["motivo"] == "asesoria"
+    assert metadata["submotivo"] == "se_corto"
+
+
+@pytest.mark.parametrize("motivo", ["asesoría", "Consulta médica", "", "   "])
+def test_motivo_inventado_degrada_a_otro_y_no_pierde_el_ticket(motivo, llamadas, configurado):
+    resultado = st.crear_ticket("Asunto", "Detalle", motivo, "", FakeContext())
+
+    assert resultado["status"] == "ok"
+    assert llamadas[0]["cuerpo"]["metadata"]["motivo"] == "otro"
+
+
+def test_submotivo_que_no_pertenece_al_motivo_se_descarta(llamadas, configurado):
+    st.crear_ticket("Asunto", "Detalle", "sin_receta", "se_corto", FakeContext())
+
+    metadata = llamadas[0]["cuerpo"]["metadata"]
+    assert metadata["motivo"] == "sin_receta"
+    assert "submotivo" not in metadata
+
+
+def test_submotivo_vacio_no_viaja_como_clave_nula(llamadas, configurado):
+    st.crear_ticket("Asunto", "Detalle", "otro", "", FakeContext())
+
+    assert "submotivo" not in llamadas[0]["cuerpo"]["metadata"]
+
+
+def test_el_contexto_del_cliente_acompaña_al_ticket(llamadas, configurado):
+    state = {
+        "profile": dict(PROFILE),
+        "client_context": {
+            "route": "/saludgs/es/appointments",
+            "app_version": "1.15.0",
+            "device": "iPhone",
+            "chat_surface": "support_bubble",
+        },
+    }
+
+    st.crear_ticket("Asunto", "Detalle", "otro", "", FakeContext(state))
+
+    metadata = llamadas[0]["cuerpo"]["metadata"]
+    assert metadata["route"] == "/saludgs/es/appointments"
+    assert metadata["app_version"] == "1.15.0"
+    assert metadata["device"] == "iPhone"
+    assert metadata["chat_surface"] == "support_bubble"
+
+
+def test_el_contexto_del_cliente_no_puede_meter_claves_arbitrarias(llamadas, configurado):
+    state = {
+        "profile": dict(PROFILE),
+        # `reporter_id` es el caso que importa: la identidad sale del profile y
+        # el contexto lo arma el cliente. Si el allowlist se volviera un
+        # `update()`, esto reescribiria a quien se le atribuye el ticket.
+        "client_context": {"route": "/x", "reporter_id": "99", "origen": "whatsapp"},
+    }
+
+    st.crear_ticket("Asunto", "Detalle", "otro", "", FakeContext(state))
+
+    cuerpo = llamadas[0]["cuerpo"]
+    assert cuerpo["reporter_id"] == "36"
+    assert cuerpo["metadata"]["origen"] == "chat"
+    assert "reporter_id" not in cuerpo["metadata"]
+
+
+@pytest.mark.parametrize("contexto", [None, "no-soy-un-dict", {}])
+def test_sin_contexto_el_ticket_se_crea_igual(contexto, llamadas, configurado):
+    state = {"profile": dict(PROFILE), "client_context": contexto}
+
+    resultado = st.crear_ticket("Asunto", "Detalle", "otro", "", FakeContext(state))
+
+    assert resultado["status"] == "ok"
+    assert llamadas[0]["cuerpo"]["metadata"]["site_slug"] == "saludgs"
+
+
+def test_sin_site_slug_la_metadata_no_lo_inventa(llamadas, configurado):
+    state = {"profile": {k: v for k, v in PROFILE.items() if k != "site_slug"}}
+
+    st.crear_ticket("Asunto", "Detalle", "otro", "", FakeContext(state))
+
+    assert "site_slug" not in llamadas[0]["cuerpo"]["metadata"]
+
+
+def test_los_enums_del_schema_no_se_separan_de_la_taxonomia():
+    """`Motivo`/`Submotivo` son los que ve el modelo; `TAXONOMIA` la que valida.
+
+    Estan escritos dos veces porque `Literal` necesita constantes. Si se
+    separan, el schema deja pasar un valor que `_clasificar` despues descarta:
+    el modelo clasifica bien y el ticket llega al board sin etiqueta.
+    """
+    from typing import get_args
+
+    assert set(get_args(st.Motivo)) == set(st.TAXONOMIA)
+
+    submotivos = {sub for subs in st.TAXONOMIA.values() for sub in subs}
+    assert set(get_args(st.Submotivo)) == submotivos | {""}

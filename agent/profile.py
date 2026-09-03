@@ -56,3 +56,28 @@ def read_task(state: dict[str, Any]) -> str | None:
     """Tarea sembrada por core-api, normalizada, o None si es conversacion."""
     task = state.get(TASK_KEY)
     return task.strip().lower() or None if isinstance(task, str) else None
+
+
+# Contexto del cliente que abrio la sesion: en que pantalla estaba, con que
+# version, desde que dispositivo. Lo siembra core-api junto con el perfil (mismo
+# POST a .../sessions) y viaja aparte de `profile` a proposito: `profile` es
+# identidad —core-api la resuelve de su propia DB y el cliente no la toca—,
+# esto es telemetria que manda el cliente y que core-api solo saneo.
+#
+# Existe porque el chat de la PWA no tiene el formulario del Flow de WhatsApp:
+# alli el ticket llega con motivo, sitio y evidencias ya estructurados, y aqui
+# nace de prosa libre. Lo que la PWA si sabe —y WhatsApp no— es donde estaba
+# parado el usuario cuando abrio la burbuja, que es justo lo que le falta a
+# quien lee el ticket en el board.
+CLIENT_CONTEXT_KEY = "client_context"
+
+
+def read_client_context(state: dict[str, Any]) -> dict[str, Any]:
+    """Contexto de la sesion sembrado por core-api. `{}` si no vino.
+
+    Ausente NO es un error: la sesion de BOA o un cliente viejo no lo mandan, y
+    un ticket sin ruta ni version sigue siendo un ticket valido. Por eso
+    devuelve `{}` y no `None`: el caller lo funde en la metadata sin ramificar.
+    """
+    contexto = state.get(CLIENT_CONTEXT_KEY)
+    return contexto if isinstance(contexto, dict) else {}

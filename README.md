@@ -30,7 +30,7 @@ CategoryRouter  (support_orquestador)   router determinista, sin LLM
 | --- | --- |
 | `agent/agent.py` | `root_agent`: mapas `ROUTES` / `TASK_ROUTES` y `FALLBACK` |
 | `agent/router.py` | `CategoryRouter`: enruta por `state`, sin gastar un turno de LLM |
-| `agent/profile.py` | Contrato de lectura de `session_state` (`profile`, `task`) |
+| `agent/profile.py` | Contrato de lectura de `session_state` (`profile`, `task`, `client_context`) |
 | `agent/sub_agents.py` | Agentes conversacionales `standard` y `medical` |
 | `agent/ticket.py` | Clasificador de tickets con `output_schema` -> `agent_output` |
 | `agent/models.py` | `GlobalGemini`: modelo anclado a la location `global` |
@@ -80,6 +80,40 @@ si hay tres llamadas HTTP contra
 
 `PATCH` y `DELETE` existen en el CRUD y **no** se exponen a proposito: un
 modelo no borra tickets ni reescribe el asunto de uno ya clasificado.
+
+### De donde sale el contexto de un ticket abierto desde el chat
+
+El Flow de WhatsApp entrega el ticket ya estructurado: motivo, submotivo, sitio
+y evidencias salen de botones. El chat de la PWA no tiene ese formulario, el
+ticket nace de prosa libre, y lo que le falta al que lo lee en el board se
+recupera de dos fuentes distintas — a proposito, porque no son igual de
+confiables:
+
+| Dato | De donde sale | Se puede creer |
+| --- | --- | --- |
+| `reporter_id`, `contact_name`, `site_id`, `site_slug` | `session_state["profile"]`, que core-api resuelve de la sesion autenticada | si |
+| `route`, `app_version`, `device`, `chat_surface` | `session_state["client_context"]`, que arma el navegador y core-api saneo | es telemetria, no identidad |
+| `motivo`, `submotivo` | los clasifica el modelo al llamar `crear_ticket` | no: se validan contra `TAXONOMIA` |
+
+`motivo` y `submotivo` son `Literal`, no `str`: ADK los publica como `enum` en
+el schema de la tool, asi que el modelo no puede emitir un valor fuera de la
+lista. Lo que el enum no puede expresar es la dependencia entre los dos campos
+—`se_corto` solo existe bajo `asesoria`—, y esa es justo la equivocacion que un
+modelo comete; de ahi que `_clasificar` valide igual.
+
+`TAXONOMIA` es la misma lista del Flow de WhatsApp y de los accesos rapidos de
+la burbuja (`lib/support/quickActions.ts` en la PWA). Los tres canales tienen
+que coincidir literal: es la llave con la que soporte compara el mismo caso en
+WhatsApp y en la app.
+
+Un motivo que no este en la lista degrada a `otro` y un submotivo que no
+pertenezca a su motivo se descarta, pero **el ticket se crea igual**: el reporte
+del usuario es el dato que importa, y perderlo porque el modelo escribio
+"asesoría" con acento seria cambiar un ticket mal etiquetado por ningun ticket.
+
+Ninguna clave de `client_context` puede pisar la metadata: se copia por
+allowlist (`CONTEXTO_EN_METADATA`), no con un `update()`. Sin eso, un
+`reporter_id` en el contexto reescribiria a quien se le atribuye el ticket.
 
 **La identidad nunca es un argumento de la tool**: sale del `session_state`.
 Si el modelo pudiera pasar un `reporter_id` cualquiera, "muestrame los tickets
