@@ -52,10 +52,16 @@ y se testea sin tocar el modelo.
 
 Cuando `session_state["task"] == "ticket_classification"`, el mensaje es un
 ticket raw y la respuesta es **solo** el JSON de `TicketClassification`
-(`enhanced_subject`, `enhanced_body`, `classification`, `priority`), que
-core-api persiste en la columna `agent_output` (jsonb) y usa para abrir el
-issue en GitHub. La prioridad se decide leyendo la matriz de severidad del SLA
-desde la documentacion, no de memoria.
+(`enhanced_subject`, `enhanced_body`, `classification`, `priority`,
+`user_summary`), que core-api persiste en la columna `agent_output` (jsonb) y
+usa para abrir el issue en GitHub. La prioridad se decide leyendo la matriz de
+severidad del SLA desde la documentacion, no de memoria.
+
+El ticket tiene dos lectores y por eso dos textos: `enhanced_body` es la nota
+para el equipo en el board —precisa, con todos los datos del raw— y
+`user_summary` es lo que ve el usuario en el chat de la PWA, en lenguaje llano
+y calido, porque quien lo lee no conoce el producto. Fundirlos en un solo texto
+de tono intermedio le costaria precision al triage.
 
 ### Fundamentacion
 
