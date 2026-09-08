@@ -1,0 +1,48 @@
+{
+  "criteria": {
+    "rubric_based_final_response_quality_v1": {
+      "threshold": 0.8,
+      "judge_model_options": {
+        "judge_model": "gemini-3.5-flash"
+      },
+      "rubrics": [
+        {
+          "rubric_id": "json_del_contrato",
+          "rubric_content": {
+            "text_property": "La respuesta es unicamente un JSON con las llaves enhanced_subject, enhanced_body, classification, priority y user_summary, sin texto adicional, sin saludo y sin preguntas de vuelta al usuario."
+          }
+        },
+        {
+          "rubric_id": "no_inventa_hechos",
+          "rubric_content": {
+            "text_property": "enhanced_body no agrega hechos que el ticket no dice (fechas, folios, montos, diagnosticos, causa raiz del fallo) ni concluye por que ocurrio el problema. Si el raw se contradice consigo mismo, no elige una version y la presenta como hecho. Lo que falta lo lista como datos faltantes."
+          }
+        },
+        {
+          "rubric_id": "conserva_datos_del_raw",
+          "rubric_content": {
+            "text_property": "enhanced_body conserva TODOS los datos concretos que venian en el ticket raw: nombre y telefono del contacto, canal, motivo y submotivo (cuando viene), sitio, la cantidad de evidencias adjuntas, y lo que el usuario dijo textualmente en el cuerpo."
+          }
+        },
+        {
+          "rubric_id": "prioridad_del_sla",
+          "rubric_content": {
+            "text_property": "priority se justifica por el impacto real segun la matriz de severidad del SLA que el agente leyo con buscar_documentacion, no por la urgencia que declara el usuario. Un ticket que impidio al usuario recibir el servicio contratado no queda en 'low'."
+          }
+        },
+        {
+          "rubric_id": "clasificacion_razonable",
+          "rubric_content": {
+            "text_property": "classification corresponde a lo que el usuario reporta segun el vocabulario del proyecto ('billing' cobros y pagos, 'scheduling' citas agenda y horarios, 'technical' errores fallas y uso del producto, 'other' lo que no encaje) y no cae en una categoria claramente ajena al reporte."
+          }
+        },
+        {
+          "rubric_id": "user_summary_para_el_usuario",
+          "rubric_content": {
+            "text_property": "user_summary le habla al propio usuario de tu, en su idioma, en dos o tres frases calidas y sin markdown: le confirma que se entendio su caso y que alguien lo va a revisar. No usa jerga interna (S1-S4, SLA, incidencia, ticket escalado, nombres de pantallas o endpoints), no repite la cabecera del ticket (Canal, Sitio, Motivo, Evidencias) ni la lista de datos faltantes, no promete plazos ni tiempos de respuesta, y no agrega hechos que el usuario no dijo."
+          }
+        }
+      ]
+    }
+  }
+}

@@ -6,7 +6,9 @@ Flujo completo (ver core-api app/controllers/api/v1/agents/):
       stream_queries_ctrl    POST ...:streamQuery  {message, user_id, session_id}
 
 El perfil y la categoria del cliente llegan sembrados en `session_state`;
-este agente no consulta core-api de vuelta (opcion B).
+para eso este agente no consulta core-api de vuelta (opcion B). Los tickets si
+salen por HTTP: no existen cuando la sesion arranca, asi que no hay nada que
+sembrar (ver tools/support_tickets.py).
 
 No todo lo que entra es conversacion: el endpoint de tickets manda el ticket
 raw con `session_state["task"] = "ticket_classification"` y espera de vuelta
