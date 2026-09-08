@@ -390,11 +390,9 @@ base — da un 404 que parece del engine y no lo es.
 - **Pendiente:** `sessions_controller`, aceptar y mandar `sessionState`. La
   clasificación ya no lo necesita (Classify abre su propia sesión), pero el
   chat sí: sin él nunca se llega a `support_medical`.
-- **Pendiente:** la fecha compromiso a partir de `severity` / `sla_resolution`
-  (§5). Nada se rompe si no la calculan todavía: son dos llaves más en el
-  jsonb, y `Classify` ya guarda `agent_output` verbatim sin validar el conjunto
-  de campos. Cuando la calculen, va al issue y al board — **no** a la
-  `SupportTicketCard`.
+- ~~La fecha compromiso a partir de `severity` / `sla_resolution` (§5).~~
+  Escrito en la rama `feat/cora-sla-due-date` (desde `develop-cora-support`).
+  Ver §12.
 
 ---
 
@@ -620,3 +618,75 @@ está en su default (`true`), así que esta llamada **rota** el token. La PWA
 guarda el rotado de los headers de la respuesta, igual que hace su `ApiClient`.
 Sin eso, abrir el chat invalidaría el token guardado y la siguiente petición de
 la app daría 401 — es decir, abrir soporte cerraría la sesión.
+
+---
+
+## 12. La fecha compromiso del lado de core-api (rama `feat/cora-sla-due-date`)
+
+Rama sacada de `develop-cora-support`. Un servicio nuevo, una columna y el
+cableado.
+
+| Archivo | Qué hace |
+| --- | --- |
+| `app/services/support_tickets/sla_due_date.rb` | Convierte `"8 horas hábiles"` en una fecha, contra el calendario hábil. |
+| `db/migrate/20260908120000_add_sla_due_at_to_support_tickets.rb` | Columna `sla_due_at` + índice parcial de lo abierto y vencido. |
+| `support_ticket.rb` | Lectores `#severity` y `#sla_resolution` desde el jsonb, `#sla_breached?` y el scope `sla_breached`. |
+| `push_to_github.rb` | Calcula y persiste `sla_due_at`, y pinta la fila "Compromiso SLA" en el issue. |
+| `classify.rb` | Reconoce los campos nuevos **sin exigirlos** (ver abajo). |
+
+### Por qué `severity` y `sla_resolution` NO entraron a `REQUIRED_KEYS`
+
+Es la decisión que más importa de esta rama. El engine todavía no se
+redespliega, así que hoy el agente responde **sin** esos dos campos. Si
+`Classify` los exigiera, cada ticket fallaría la clasificación —`agent_output`
+en NULL, item creado con el texto raw— hasta el momento exacto del redeploy.
+Sería un apagón autoinfligido, y justo el que ese servicio existe para evitar.
+
+Se leen donde están y se omiten donde no. Un `severity` presente pero fuera del
+vocabulario sí se loguea: eso ya es una deriva del contrato, no una versión
+vieja.
+
+### Qué pasa cuando no hay plazo
+
+`sla_due_at` se queda en NULL y la fila "Compromiso SLA" no se imprime. Pasa en
+tres casos: el agente no leyó la matriz (`sla_resolution` vacío), es un deploy
+viejo que no manda el campo, o la redacción de la matriz cambió y el parser no
+la reconoce. Los tres se tratan igual y a propósito: **una fecha ausente es un
+hueco que alguien nota en el board; una inventada es una promesa que nadie
+hizo.**
+
+### Horas hábiles vs. horas de reloj
+
+`"8 horas hábiles"` se detiene a las 18:00 y sigue a las 9:00 del siguiente día
+hábil. `"8 horas"`, sin el calificativo, corre en tiempo de reloj. La distinción
+la hace el SLA, no nosotros: colapsarlas movería todos los plazos que la matriz
+declara en horas corridas.
+
+⚠️ **Dos supuestos que hay que confirmar contra el documento del SLA**, porque
+no están en ningún repo:
+
+1. **La ventana hábil es L-V 9:00-18:00, `America/Mexico_City`.** Es la
+   constante `WORKDAY`/`WORKDAYS` de `sla_due_date.rb`, y es un default
+   razonable, no un valor leído de la matriz. Si el SLA dice otra cosa, es una
+   línea.
+2. **No hay calendario de feriados.** No existe uno en la app ni una gema para
+   ello. Un vencimiento que cae en día festivo queda corrido hasta un día. Es
+   un error acotado y conocido, no un descuido.
+
+### Dónde NO aparece
+
+En ningún serializer. `PublicSupportTicketSerializer` —el que ve la PWA— ya
+expone `priority`, así que el reflejo sería agregarla ahí también: no se hizo.
+El plazo es el compromiso interno del equipo, y renderizado en la burbuja se
+vuelve una promesa a un paciente que está esperando su receta. Va al issue y al
+board.
+
+### Lo que falta para correrla
+
+`db/schema.rb` **no está actualizado** en la rama: no había Postgres disponible
+donde se escribió. Corran `rails db:migrate` y commiteen el schema resultante.
+Por lo mismo, los specs nuevos (`sla_due_date_spec.rb`, y los dos casos que se
+sumaron a `push_to_github_spec.rb`) están escritos pero **no ejecutados** —
+la lógica de fechas sí se verificó aparte, con los 21 casos que el spec
+reproduce.
+
