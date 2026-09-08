@@ -11,7 +11,9 @@ cliente -> core-api -> Vertex AI Agent Engine -> este agente
 ```
 
 El perfil y la categoria del cliente llegan **sembrados en `session_state`**
-(opcion B de la arquitectura): el agente nunca llama de vuelta a core-api.
+(opcion B de la arquitectura): para leer al usuario, el agente nunca llama de
+vuelta a core-api. La excepcion son los tickets, que no existen cuando la
+sesion arranca — ver *Tickets* mas abajo.
 
 ## Arquitectura
 
@@ -28,11 +30,12 @@ CategoryRouter  (support_orquestador)   router determinista, sin LLM
 | --- | --- |
 | `agent/agent.py` | `root_agent`: mapas `ROUTES` / `TASK_ROUTES` y `FALLBACK` |
 | `agent/router.py` | `CategoryRouter`: enruta por `state`, sin gastar un turno de LLM |
-| `agent/profile.py` | Contrato de lectura de `session_state` (`profile`, `task`) |
+| `agent/profile.py` | Contrato de lectura de `session_state` (`profile`, `task`, `client_context`) |
 | `agent/sub_agents.py` | Agentes conversacionales `standard` y `medical` |
 | `agent/ticket.py` | Clasificador de tickets con `output_schema` -> `agent_output` |
 | `agent/models.py` | `GlobalGemini`: modelo anclado a la location `global` |
 | `agent/tools/docs_search.py` | `buscar_documentacion` sobre Vertex AI Search |
+| `agent/tools/support_tickets.py` | Tickets contra core-api: consultar, ver y crear |
 
 Decisiones no obvias (por que un router a mano y no delegacion LLM, por que
 una function tool y no `VertexAiSearchTool`, por que segments y no answers)
@@ -49,10 +52,16 @@ y se testea sin tocar el modelo.
 
 Cuando `session_state["task"] == "ticket_classification"`, el mensaje es un
 ticket raw y la respuesta es **solo** el JSON de `TicketClassification`
-(`enhanced_subject`, `enhanced_body`, `classification`, `priority`), que
-core-api persiste en la columna `agent_output` (jsonb) y usa para abrir el
-issue en GitHub. La prioridad se decide leyendo la matriz de severidad del SLA
-desde la documentacion, no de memoria.
+(`enhanced_subject`, `enhanced_body`, `classification`, `priority`,
+`user_summary`), que core-api persiste en la columna `agent_output` (jsonb) y
+usa para abrir el issue en GitHub. La prioridad se decide leyendo la matriz de
+severidad del SLA desde la documentacion, no de memoria.
+
+El ticket tiene dos lectores y por eso dos textos: `enhanced_body` es la nota
+para el equipo en el board —precisa, con todos los datos del raw— y
+`user_summary` es lo que ve el usuario en el chat de la PWA, en lenguaje llano
+y calido, porque quien lo lee no conoce el producto. Fundirlos en un solo texto
+de tono intermedio le costaria precision al triage.
 
 ### Fundamentacion
 
@@ -60,6 +69,67 @@ Ambos agentes conversacionales y el clasificador comparten
 `buscar_documentacion`, que consulta el dataStore de Discovery Engine que
 corresponde a la categoria. La busqueda se ejecuta client-side a proposito:
 asi queda como `tool_use` + `tool_response` y es auditable por `adk eval`.
+
+### Tickets: la unica llamada de vuelta a core-api
+
+El perfil llega sembrado en `session_state` (opcion B) porque core-api ya lo
+tiene cuando abre la sesion. Un ticket no existe todavia cuando la sesion
+arranca —lo crea la conversacion—, asi que no hay nada que sembrar: para eso
+si hay tres llamadas HTTP contra
+`/api/v1/agents/support_tickets`, autenticadas con `X-Agent-Secret`.
+
+| Tool | Endpoint | Para que |
+| --- | --- | --- |
+| `consultar_mis_tickets` | `GET /` filtrado por reporter | "como va lo que reporte" |
+| `ver_ticket` | `GET /:id` | detalle de un ticket que el usuario menciono |
+| `crear_ticket` | `POST /` | abrir uno cuando la documentacion no alcanzo |
+
+`PATCH` y `DELETE` existen en el CRUD y **no** se exponen a proposito: un
+modelo no borra tickets ni reescribe el asunto de uno ya clasificado.
+
+### De donde sale el contexto de un ticket abierto desde el chat
+
+El Flow de WhatsApp entrega el ticket ya estructurado: motivo, submotivo, sitio
+y evidencias salen de botones. El chat de la PWA no tiene ese formulario, el
+ticket nace de prosa libre, y lo que le falta al que lo lee en el board se
+recupera de dos fuentes distintas — a proposito, porque no son igual de
+confiables:
+
+| Dato | De donde sale | Se puede creer |
+| --- | --- | --- |
+| `reporter_id`, `contact_name`, `site_id`, `site_slug` | `session_state["profile"]`, que core-api resuelve de la sesion autenticada | si |
+| `route`, `app_version`, `device`, `chat_surface` | `session_state["client_context"]`, que arma el navegador y core-api saneo | es telemetria, no identidad |
+| `motivo`, `submotivo` | los clasifica el modelo al llamar `crear_ticket` | no: se validan contra `TAXONOMIA` |
+
+`motivo` y `submotivo` son `Literal`, no `str`: ADK los publica como `enum` en
+el schema de la tool, asi que el modelo no puede emitir un valor fuera de la
+lista. Lo que el enum no puede expresar es la dependencia entre los dos campos
+—`se_corto` solo existe bajo `asesoria`—, y esa es justo la equivocacion que un
+modelo comete; de ahi que `_clasificar` valide igual.
+
+`TAXONOMIA` es la misma lista del Flow de WhatsApp y de los accesos rapidos de
+la burbuja (`lib/support/quickActions.ts` en la PWA). Los tres canales tienen
+que coincidir literal: es la llave con la que soporte compara el mismo caso en
+WhatsApp y en la app.
+
+Un motivo que no este en la lista degrada a `otro` y un submotivo que no
+pertenezca a su motivo se descarta, pero **el ticket se crea igual**: el reporte
+del usuario es el dato que importa, y perderlo porque el modelo escribio
+"asesoría" con acento seria cambiar un ticket mal etiquetado por ningun ticket.
+
+Ninguna clave de `client_context` puede pisar la metadata: se copia por
+allowlist (`CONTEXTO_EN_METADATA`), no con un `update()`. Sin eso, un
+`reporter_id` en el contexto reescribiria a quien se le atribuye el ticket.
+
+**La identidad nunca es un argumento de la tool**: sale del `session_state`.
+Si el modelo pudiera pasar un `reporter_id` cualquiera, "muestrame los tickets
+del usuario 12" leeria los de otra persona. Por la misma razon `ver_ticket`
+comprueba que el ticket devuelto sea del reporter de la sesion — el filtro de
+verdad le toca a core-api, esto es la segunda linea.
+
+Sin dependencias nuevas (`urllib.request` de la stdlib): el runtime desplegado
+es exactamente `agent/requirements.txt` y no vale sumarle un cliente HTTP por
+tres llamadas.
 
 ## Setup local
 
@@ -78,6 +148,8 @@ python3 -m venv .venv
 | `DOCS_DATASTORE_STANDARD` | `orquestor-support-collection_documents` | |
 | `DOCS_DATASTORE_MEDICAL` | igual al anterior | hoy no hay docs restringidas a medicos |
 | `DATASTORE_LOCATION` | `global` (default) | opcional |
+| `CORE_API_BASE_URL` | `https://<host de core-api>` | sin slash final; sin esto las tools de tickets responden `no_configurado` |
+| `AGENT_API_SECRET` | el mismo valor que en core-api | shared secret del header `X-Agent-Secret` |
 
 Credenciales:
 

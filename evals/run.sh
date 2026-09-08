@@ -21,3 +21,7 @@ echo "=== grounded (fundamentacion + acierto) ==="
 echo "=== scope (respeto de alcance) ==="
 .venv/bin/adk eval agent evals/scope.evalset.json \
   --config_file_path evals/scope.config.json "$@"
+
+echo "=== ticket (clasificacion estructurada) ==="
+.venv/bin/adk eval agent evals/ticket.evalset.json \
+  --config_file_path evals/ticket.config.json "$@"

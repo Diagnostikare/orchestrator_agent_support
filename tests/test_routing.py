@@ -144,6 +144,7 @@ def test_agent_output_respeta_el_contrato_con_core_api():
         "enhanced_body",
         "classification",
         "priority",
+        "user_summary",
     }
     assert all(campo.description for campo in campos.values())
 
@@ -173,5 +174,6 @@ def _clasificacion(**overrides):
         "enhanced_body": "El boton de agendar no responde.",
         "classification": "technical",
         "priority": "medium",
+        "user_summary": "Ya registramos que el boton de agendar no te responde.",
     }
     return TicketClassification(**(base | overrides))
