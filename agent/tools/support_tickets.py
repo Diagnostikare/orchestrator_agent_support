@@ -50,6 +50,15 @@ TIMEOUT_SECONDS = 10
 PATH = "/api/v1/agents/support_tickets"
 SECRET_HEADER = "X-Agent-Secret"
 
+# core-api esta detras de Cloudflare, y su Browser Integrity Check responde
+# `403 error code: 1010` al User-Agent que urllib manda por defecto
+# (`Python-urllib/3.x`), ANTES de que la peticion llegue a Rails. El sintoma es
+# opaco: el secret y la ruta estan bien, pero la tool solo ve un 403 y el modelo
+# le dice al usuario que hubo un error del sistema. Cualquier UA propio pasa;
+# este identifica al agente en los logs de core-api, que es lo que uno quiere de
+# un cliente servidor-a-servidor de todas formas.
+USER_AGENT = "Diagnostikare-Support-Agent/1.0"
+
 # Cuantos tickets devolverle al modelo. El endpoint pagina y ordena por
 # `created_at DESC`: mas de esto solo infla el contexto con historia vieja.
 MAX_TICKETS = 5
@@ -263,6 +272,7 @@ def _request(metodo: str, ruta: str, *, params: dict | None = None,
     request = urllib.request.Request(url, data=data, method=metodo)
     request.add_header(SECRET_HEADER, secret)
     request.add_header("Content-Type", "application/json")
+    request.add_header("User-Agent", USER_AGENT)
 
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:

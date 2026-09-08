@@ -35,6 +35,15 @@ Nota de contrato: el SLA v2.0 clasifica en cuatro severidades (S1-S4) y este
 `priority` tiene tres valores. El mapeo (S1/S2 -> high) vive en el prompt, no
 en el codigo, porque es una decision de producto y ajustarla no deberia
 requerir tocar el schema.
+
+Por eso `severity` viaja aparte y sin colapsar: el board necesita distinguir un
+S1 de un S2 —los dos llegan como `high`— y es la llave con la que core-api
+calcula la fecha compromiso. `sla_resolution` la acompaña con el plazo tal como
+lo declara la matriz ("8 horas habiles"), no con una fecha: el agente no tiene
+reloj ni calendario habil, y una fecha inventada por el modelo terminaria
+impresa en el issue como si fuera un compromiso. La aritmetica
+`created_at + plazo` es de core-api, que si sabe que hora es y que dias son
+habiles.
 """
 
 from __future__ import annotations
@@ -55,6 +64,11 @@ Classification = Literal["billing", "scheduling", "technical", "other"]
 # Fijas: el equipo puede ajustar la prioridad desde GitHub, pero el vocabulario
 # lo define el SLA de soporte, no el agente.
 Priority = Literal["low", "medium", "high"]
+
+# Las cuatro severidades del SLA v2.0, sin colapsar. `priority` es la version
+# de tres valores que consume el single-select del board; esta es la que core-api
+# usa como llave para el plazo.
+Severity = Literal["S1", "S2", "S3", "S4"]
 
 MODEL_TICKET = GlobalGemini(model="gemini-3.5-flash")
 
@@ -80,6 +94,19 @@ class TicketClassification(BaseModel):
     priority: Priority = Field(
         description="Prioridad segun el SLA de soporte documentado."
     )
+    severity: Severity = Field(
+        description=(
+            "Severidad del SLA sin colapsar (S1-S4). Es la llave con la que "
+            "core-api calcula la fecha compromiso del ticket."
+        )
+    )
+    sla_resolution: str = Field(
+        description=(
+            "El tiempo de resolucion que la matriz del SLA declara para esa "
+            "severidad, copiado tal cual del documento (por ejemplo "
+            "\"8 horas habiles\"). Nunca una fecha."
+        )
+    )
     user_summary: str = Field(
         description=(
             "Lo mismo que reporto el usuario, contado de vuelta EN SEGUNDA "
@@ -97,11 +124,13 @@ o email): puede venir sin estructura, con faltas de ortografia, en cualquier
 idioma y con datos mezclados. No es una conversacion: no saludes, no hagas
 preguntas de vuelta, no pidas mas informacion. Nadie va a contestarte.
 
-Antes de asignar `priority`, llama a `buscar_documentacion` con la consulta
-"matriz de severidad tiempos de respuesta y resolucion S1 S2 S3 S4" para leer
-la matriz vigente del SLA, y decide con esa politica y no de memoria.
+Antes de asignar `severity` y `priority`, llama a `buscar_documentacion` con la
+consulta "matriz de severidad tiempos de respuesta y resolucion S1 S2 S3 S4"
+para leer la matriz vigente del SLA, y decide con esa politica y no de memoria.
+De esa misma matriz sale `sla_resolution`.
 
-El SLA usa CUATRO severidades y este campo tiene TRES valores. Colapsalas asi:
+Elige primero la severidad (`severity`, S1-S4) y de ahi deriva `priority`. El
+SLA usa CUATRO severidades y `priority` tiene TRES valores. Colapsalas asi:
 - S1 Critico (aplicacion fuera de linea, datos en riesgo) -> "high"
 - S2 Alto (funcionalidad principal interrumpida)          -> "high"
 - S3 Medio (problemas menores con la funcionalidad)       -> "medium"
@@ -114,6 +143,9 @@ La matriz aplica a incidencias TECNICAS. Para lo que no lo es:
   usuario lo pida amablemente y aunque ademas este preguntando como reagendar.
   Esta regla tiene PRECEDENCIA sobre "low": antes de asignar "low", verifica
   que el usuario si recibio el servicio que esperaba.
+`severity` y `priority` tienen que ser coherentes entre si segun esa tabla: un
+`severity` de "S1" o "S2" va siempre con `priority` "high", "S3" con "medium" y
+"S4" con "low".
 
 La urgencia que declara el usuario ("urgente", "lo necesito hoy") no sube la
 prioridad por si sola: la severidad la define el impacto segun el SLA. Si esa
@@ -121,9 +153,13 @@ urgencia importa —una fecha comprometida, por ejemplo— va en `enhanced_body`
 no en `priority`.
 
 Si la busqueda no trae la matriz (status distinto de "ok", o pasajes sin el
-dato), NO reintentes reformulando: asigna "medium" y abre `enhanced_body` con
-la linea "> SLA no encontrado en la documentacion: prioridad asignada por
-defecto." No inventes tiempos de respuesta ni cites un SLA que no leiste.
+dato), NO reintentes reformulando: asigna "medium" con `severity` "S3",
+`sla_resolution` en cadena vacia, y abre `enhanced_body` con la linea "> SLA no
+encontrado en la documentacion: prioridad asignada por defecto." No inventes
+tiempos de respuesta ni cites un SLA que no leiste. Vacio es un dato correcto
+aqui: core-api sabe que sin plazo no hay fecha compromiso que calcular, y un
+plazo inventado se imprimiria en el issue como si el equipo lo hubiera
+prometido.
 
 Reglas de salida:
 - `enhanced_subject`: una linea, concreta, sin "Consulta sobre..." ni relleno.
@@ -144,6 +180,13 @@ Reglas de salida:
   citalo literal entre comillas en vez de parafrasearlo.
   Este campo NO se suaviza: es la nota de trabajo del equipo. Lo amable va en
   `user_summary`, y que exista no te autoriza a recortar aqui.
+- `sla_resolution`: el tiempo de RESOLUCION que la matriz declara para la
+  severidad que elegiste, copiado con las palabras del documento ("8 horas
+  habiles", "2 dias habiles"). Es el plazo de resolucion, no el de primera
+  respuesta: si la matriz trae las dos columnas, toma la de resolucion.
+  Nunca una fecha ni un dia de la semana: no sabes que dia es hoy, y quien
+  convierte el plazo en fecha es core-api, que si tiene el calendario habil.
+  Si la matriz no declara plazo para esa severidad, dejalo en cadena vacia.
 - `classification`: "billing" cobros, facturas y pagos; "scheduling" citas,
   agenda y horarios; "technical" errores, fallas y uso del producto; "other" lo
   que no encaje.

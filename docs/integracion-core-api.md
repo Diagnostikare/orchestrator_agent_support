@@ -220,19 +220,66 @@ evaluando un input que no existe.
   "enhanced_subject": "Reagendación de asesoría marcada como no atendida",
   "enhanced_body": "El usuario reporta que no recibió la llamada...",
   "classification": "scheduling",
-  "priority": "low",
+  "priority": "high",
+  "severity": "S2",
+  "sla_resolution": "8 horas hábiles",
   "user_summary": "Ya registramos que no recibiste la llamada del médico..."
 }
 ```
 
-Cinco campos, siempre los cinco. Vocabularios cerrados:
+Siete campos, siempre los siete. Vocabularios cerrados:
 
 - `classification`: `billing` | `scheduling` | `technical` | `other`
 - `priority`: `low` | `medium` | `high`
+- `severity`: `S1` | `S2` | `S3` | `S4`
+
+### `severity` y `sla_resolution`: la fecha compromiso (2026-09-08)
+
+`priority` colapsa las cuatro severidades del SLA en los tres valores que
+acepta el single-select del board, y en ese colapso S1 y S2 quedan
+indistinguibles: una aplicación caída y una asesoría que no ocurrió llegan las
+dos como `high`. `severity` viaja sin colapsar para que el board pueda
+separarlas, y es la **llave con la que ustedes calculan el vencimiento**.
+
+`sla_resolution` es el plazo de **resolución** que la matriz declara para esa
+severidad, copiado con las palabras del documento: `"8 horas hábiles"`,
+`"2 días hábiles"`. Los dos campos siempre son coherentes entre sí —S1/S2 con
+`high`, S3 con `medium`, S4 con `low`—, así que pueden usar el que les acomode
+como llave y el otro como verificación.
+
+**Es una duración, nunca una fecha, y eso es deliberado.** El agente no tiene
+reloj ni calendario de días hábiles: si le pidiéramos un ISO8601 devolvería una
+fecha plausible e inventada, y esa fecha terminaría impresa en el issue de
+GitHub como si fuera un compromiso adquirido. Quien tiene `created_at`, la zona
+horaria y los feriados es core-api. La cuenta va de su lado:
+
+```ruby
+due_at = business_hours_from(ticket.created_at, agent_output["sla_resolution"])
+```
+
+Como `severity` es un vocabulario cerrado, si prefieren no parsear el string
+pueden usar una tabla propia y quedarse con `sla_resolution` solo para
+mostrarlo. Lo que **no** conviene es ignorar el campo y hardcodear los plazos
+sin más: hoy la matriz se actualiza reimportando el documento al dataStore, sin
+deploy nuestro ni de ustedes, y una tabla en Ruby vuelve a pedir un release
+cada vez que soporte ajusta un tiempo.
+
+`sla_resolution` puede venir en **cadena vacía**: significa que la búsqueda en
+documentación no trajo la matriz (el agente además abre `enhanced_body` con la
+línea `> SLA no encontrado en la documentación...`). En ese caso `priority`
+viene en `medium` por defecto y **no hay fecha compromiso que calcular** — no
+la inventen del lado de ustedes tampoco. Vacío es un dato correcto, no un
+error: es preferible a un plazo que nadie prometió.
+
+⚠️ **Esta fecha es interna.** El prompt le prohíbe explícitamente al agente
+mencionar plazos en `user_summary` ("no cites tiempos del SLA aunque los hayas
+leído"). Si la renderizan en la `SupportTicketCard` de la burbuja la estarían
+convirtiendo en una promesa al paciente, que es justo lo que el SLA no es. Va
+al issue y al board, no al chat.
 
 ### `user_summary`: el mismo ticket, para el otro lector (2026-09-07)
 
-Los cuatro primeros campos los lee el **equipo de soporte** en el board:
+Todos los campos anteriores los lee el **equipo de soporte** en el board:
 `enhanced_body` es la nota de trabajo y tiene que conservar cada dato del raw,
 incluidos los "Datos faltantes". `user_summary` lo lee el **usuario** en el
 chat de la PWA, que es una persona sin contexto del producto: dos o tres frases
@@ -328,8 +375,10 @@ base — da un 404 que parece del engine y no lo es.
 
 1. ~~Redesplegar el engine `6890865320911699968` con el clasificador.~~
    Desplegado y verificado el 2026-08-27 16:20.
+2. `severity` + `sla_resolution` en el schema y el prompt (§5, 2026-09-08).
+   Escrito y con tests; **falta el redeploy** para que salga en beta.
 
-**Equipo de backend (ustedes)** — hecho, salvo un punto
+**Equipo de backend (ustedes)** — hecho, salvo dos puntos
 
 - ~~`SupportTickets::Classify` — service nuevo, server-to-server, sin SSE.~~
   Escrito sobre `feat/cora-support`, con specs. Ver §8.
@@ -341,6 +390,11 @@ base — da un 404 que parece del engine y no lo es.
 - **Pendiente:** `sessions_controller`, aceptar y mandar `sessionState`. La
   clasificación ya no lo necesita (Classify abre su propia sesión), pero el
   chat sí: sin él nunca se llega a `support_medical`.
+- **Pendiente:** la fecha compromiso a partir de `severity` / `sla_resolution`
+  (§5). Nada se rompe si no la calculan todavía: son dos llaves más en el
+  jsonb, y `Classify` ya guarda `agent_output` verbatim sin validar el conjunto
+  de campos. Cuando la calculen, va al issue y al board — **no** a la
+  `SupportTicketCard`.
 
 ---
 

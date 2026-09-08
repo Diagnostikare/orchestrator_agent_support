@@ -144,6 +144,8 @@ def test_agent_output_respeta_el_contrato_con_core_api():
         "enhanced_body",
         "classification",
         "priority",
+        "severity",
+        "sla_resolution",
         "user_summary",
     }
     assert all(campo.description for campo in campos.values())
@@ -161,6 +163,22 @@ def test_priority_solo_acepta_los_valores_del_sla():
         _clasificacion(priority="urgent")
 
 
+def test_severity_conserva_las_cuatro_del_sla():
+    """`priority` colapsa S1 y S2 en "high": sin este campo el board no puede
+    distinguir una aplicacion caida de una funcionalidad interrumpida, y
+    core-api no tiene llave para calcular la fecha compromiso."""
+    for valor in ("S1", "S2", "S3", "S4"):
+        assert _clasificacion(severity=valor).severity == valor
+    with pytest.raises(ValidationError):
+        _clasificacion(severity="S5")
+
+
+def test_sla_resolution_admite_vacio():
+    """Cuando la busqueda no trae la matriz el prompt manda cadena vacia. Es
+    preferible a un plazo inventado: se imprime en el issue como compromiso."""
+    assert _clasificacion(sla_resolution="").sla_resolution == ""
+
+
 def test_classification_solo_acepta_categorias_con_label_en_github():
     for valor in ("billing", "scheduling", "technical", "other"):
         assert _clasificacion(classification=valor).classification == valor
@@ -174,6 +192,8 @@ def _clasificacion(**overrides):
         "enhanced_body": "El boton de agendar no responde.",
         "classification": "technical",
         "priority": "medium",
+        "severity": "S3",
+        "sla_resolution": "2 dias habiles",
         "user_summary": "Ya registramos que el boton de agendar no te responde.",
     }
     return TicketClassification(**(base | overrides))

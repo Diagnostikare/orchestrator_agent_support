@@ -9,7 +9,7 @@
         {
           "rubric_id": "json_del_contrato",
           "rubric_content": {
-            "text_property": "La respuesta es unicamente un JSON con las llaves enhanced_subject, enhanced_body, classification, priority y user_summary, sin texto adicional, sin saludo y sin preguntas de vuelta al usuario."
+            "text_property": "La respuesta es unicamente un JSON con las llaves enhanced_subject, enhanced_body, classification, priority, severity, sla_resolution y user_summary, sin texto adicional, sin saludo y sin preguntas de vuelta al usuario."
           }
         },
         {
@@ -27,7 +27,13 @@
         {
           "rubric_id": "prioridad_del_sla",
           "rubric_content": {
-            "text_property": "priority se justifica por el impacto real segun la matriz de severidad del SLA que el agente leyo con buscar_documentacion, no por la urgencia que declara el usuario. Un ticket que impidio al usuario recibir el servicio contratado no queda en 'low'."
+            "text_property": "severity y priority se justifican por el impacto real segun la matriz de severidad del SLA que el agente leyo con buscar_documentacion, no por la urgencia que declara el usuario. Un ticket que impidio al usuario recibir el servicio contratado no queda en 'low'. Los dos campos son coherentes entre si: S1 y S2 con priority 'high', S3 con 'medium', S4 con 'low'."
+          }
+        },
+        {
+          "rubric_id": "sla_resolution_es_un_plazo",
+          "rubric_content": {
+            "text_property": "sla_resolution es el tiempo de RESOLUCION que la matriz del SLA declara para esa severidad, expresado como una duracion con las palabras del documento (por ejemplo '8 horas habiles'). Nunca es una fecha, un dia de la semana ni una hora del reloj, y no es el plazo de primera respuesta. Si el agente no pudo leer la matriz, viene en cadena vacia en vez de un plazo inventado."
           }
         },
         {

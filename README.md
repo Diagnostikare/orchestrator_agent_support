@@ -53,9 +53,17 @@ y se testea sin tocar el modelo.
 Cuando `session_state["task"] == "ticket_classification"`, el mensaje es un
 ticket raw y la respuesta es **solo** el JSON de `TicketClassification`
 (`enhanced_subject`, `enhanced_body`, `classification`, `priority`,
-`user_summary`), que core-api persiste en la columna `agent_output` (jsonb) y
-usa para abrir el issue en GitHub. La prioridad se decide leyendo la matriz de
-severidad del SLA desde la documentacion, no de memoria.
+`severity`, `sla_resolution`, `user_summary`), que core-api persiste en la
+columna `agent_output` (jsonb) y usa para abrir el issue en GitHub. La
+prioridad se decide leyendo la matriz de severidad del SLA desde la
+documentacion, no de memoria.
+
+`severity` (S1-S4) viaja sin colapsar porque `priority` solo tiene tres valores
+y en el colapso S1 y S2 se vuelven indistinguibles en el board. `sla_resolution`
+es el plazo que declara la matriz ("8 horas habiles"), no una fecha: el agente
+no tiene reloj ni calendario habil, y quien convierte el plazo en fecha
+compromiso es core-api con el `created_at` del ticket. Ninguno de los dos llega
+al usuario — el prompt le prohibe citar plazos en `user_summary`.
 
 El ticket tiene dos lectores y por eso dos textos: `enhanced_body` es la nota
 para el equipo en el board —precisa, con todos los datos del raw— y

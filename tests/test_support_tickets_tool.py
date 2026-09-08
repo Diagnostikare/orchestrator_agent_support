@@ -184,6 +184,32 @@ def test_consultar_oculta_los_campos_que_el_modelo_no_necesita(llamadas, configu
     assert "eyJ" not in json.dumps(ticket)
 
 
+def test_el_plazo_del_sla_no_llega_al_chat(llamadas, configurado):
+    """`severity` y `sla_resolution` son para el board de GitHub, no para el
+    usuario.
+
+    El clasificador los devuelve y core-api los persiste en `agent_output`, asi
+    que el dia que el serializer los exponga en el `show` van a aparecer en la
+    respuesta del endpoint. Que no lleguen al modelo hoy es efecto de
+    `CAMPOS_VISIBLES`, no de que no existan: este test lo vuelve una decision.
+
+    El plazo es el compromiso INTERNO del equipo. Dicho en el chat se vuelve una
+    promesa a un paciente que espera su receta, y no es lo que el SLA es. Por lo
+    mismo el prompt de `agent/ticket.py` le prohibe citarlo en `user_summary`.
+    """
+    llamadas.responder({"status": "ok", "data": {
+        "id": 9, "reporter_type": "User", "reporter_id": "36",
+        "enhanced_subject": "A", "enhanced_body": "B",
+        "severity": "S2", "sla_resolution": "8 horas habiles",
+    }})
+
+    ticket = st.ver_ticket(9, FakeContext())["ticket"]
+
+    assert "severity" not in ticket
+    assert "sla_resolution" not in ticket
+    assert "habiles" not in json.dumps(ticket, ensure_ascii=False)
+
+
 def test_consultar_recorta_el_historial(llamadas, configurado):
     llamadas.responder({"status": "ok", "data": [{"id": n} for n in range(20)]})
 
@@ -359,6 +385,7 @@ def test_request_arma_url_y_headers(monkeypatch, configurado):
         capturado["url"] = request.full_url
         capturado["secret"] = request.get_header(st.SECRET_HEADER.capitalize())
         capturado["metodo"] = request.get_method()
+        capturado["user_agent"] = request.get_header("User-agent")
         return FakeResponse()
 
     monkeypatch.setattr(st.urllib.request, "urlopen", fake_urlopen)
@@ -369,6 +396,12 @@ def test_request_arma_url_y_headers(monkeypatch, configurado):
     assert capturado["url"] == "https://core-api.test/api/v1/agents/support_tickets?reporter_id=36"
     assert capturado["secret"] == "s3cr3t"
     assert capturado["metodo"] == "GET"
+    # El UA por defecto de urllib (`Python-urllib/3.x`) lo rechaza el Browser
+    # Integrity Check de Cloudflare, que responde `403 error code: 1010` sin que
+    # la peticion llegue a core-api. Se paga en produccion y no en local, asi
+    # que el header se fija aqui.
+    assert capturado["user_agent"] == st.USER_AGENT
+    assert "urllib" not in capturado["user_agent"].lower()
 
 
 def test_request_no_deja_escapar_un_http_error(monkeypatch, configurado):
