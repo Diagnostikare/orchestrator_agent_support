@@ -9,7 +9,7 @@
         {
           "rubric_id": "json_del_contrato",
           "rubric_content": {
-            "text_property": "La respuesta es unicamente un JSON con las llaves enhanced_subject, enhanced_body, classification y priority, sin texto adicional, sin saludo y sin preguntas de vuelta al usuario."
+            "text_property": "La respuesta es unicamente un JSON con las llaves enhanced_subject, enhanced_body, classification, priority y user_summary, sin texto adicional, sin saludo y sin preguntas de vuelta al usuario."
           }
         },
         {
@@ -34,6 +34,12 @@
           "rubric_id": "clasificacion_razonable",
           "rubric_content": {
             "text_property": "classification corresponde a lo que el usuario reporta segun el vocabulario del proyecto ('billing' cobros y pagos, 'scheduling' citas agenda y horarios, 'technical' errores fallas y uso del producto, 'other' lo que no encaje) y no cae en una categoria claramente ajena al reporte."
+          }
+        },
+        {
+          "rubric_id": "user_summary_para_el_usuario",
+          "rubric_content": {
+            "text_property": "user_summary le habla al propio usuario de tu, en su idioma, en dos o tres frases calidas y sin markdown: le confirma que se entendio su caso y que alguien lo va a revisar. No usa jerga interna (S1-S4, SLA, incidencia, ticket escalado, nombres de pantallas o endpoints), no repite la cabecera del ticket (Canal, Sitio, Motivo, Evidencias) ni la lista de datos faltantes, no promete plazos ni tiempos de respuesta, y no agrega hechos que el usuario no dijo."
           }
         }
       ]

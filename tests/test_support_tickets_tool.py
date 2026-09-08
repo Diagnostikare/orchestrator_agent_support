@@ -217,6 +217,37 @@ def test_ver_ticket_devuelve_el_propio(llamadas, configurado):
     assert resultado["ticket"]["enhanced_body"] == "B"
 
 
+def test_ver_ticket_pasa_el_resumen_del_usuario(llamadas, configurado):
+    """El texto que el clasificador escribio para el usuario llega al modelo.
+
+    Sin esto el agente solo tiene `enhanced_body`, que es la nota interna del
+    equipo, y termina leyendosela literal a quien abrio el reporte.
+    """
+    llamadas.responder({"status": "ok", "data": {
+        "id": 9, "reporter_type": "User", "reporter_id": 36,
+        "enhanced_subject": "A", "enhanced_body": "B",
+        "user_summary": "Ya lo registramos y alguien lo va a revisar.",
+    }})
+
+    resultado = st.ver_ticket(9, FakeContext())
+
+    assert resultado["ticket"]["user_summary"] == "Ya lo registramos y alguien lo va a revisar."
+
+
+def test_ver_ticket_sin_resumen_no_inventa_la_llave(llamadas, configurado):
+    """Un ticket clasificado antes del campo —o aun sin clasificar— no lo trae.
+
+    La llave se omite en vez de mandarla vacia: un `user_summary: None` invita
+    al modelo a leerlo como "no hay nada que contar".
+    """
+    llamadas.responder({"status": "ok", "data": {
+        "id": 9, "reporter_type": "User", "reporter_id": 36,
+        "enhanced_subject": "A", "enhanced_body": "B",
+    }})
+
+    assert "user_summary" not in st.ver_ticket(9, FakeContext())["ticket"]
+
+
 def test_ver_ticket_ajeno_se_comporta_como_inexistente(llamadas, configurado):
     llamadas.responder({"status": "ok", "data": {
         "id": 9, "reporter_type": "User", "reporter_id": 99,

@@ -220,14 +220,40 @@ evaluando un input que no existe.
   "enhanced_subject": "Reagendación de asesoría marcada como no atendida",
   "enhanced_body": "El usuario reporta que no recibió la llamada...",
   "classification": "scheduling",
-  "priority": "low"
+  "priority": "low",
+  "user_summary": "Ya registramos que no recibiste la llamada del médico..."
 }
 ```
 
-Cuatro campos, siempre los cuatro. Vocabularios cerrados:
+Cinco campos, siempre los cinco. Vocabularios cerrados:
 
 - `classification`: `billing` | `scheduling` | `technical` | `other`
 - `priority`: `low` | `medium` | `high`
+
+### `user_summary`: el mismo ticket, para el otro lector (2026-09-07)
+
+Los cuatro primeros campos los lee el **equipo de soporte** en el board:
+`enhanced_body` es la nota de trabajo y tiene que conservar cada dato del raw,
+incluidos los "Datos faltantes". `user_summary` lo lee el **usuario** en el
+chat de la PWA, que es una persona sin contexto del producto: dos o tres frases
+cálidas, en segunda persona, sin markdown, sin jerga (nada de S1-S4, SLA ni
+"incidencia") y sin prometer plazos.
+
+Están separados a propósito. Un solo texto de tono intermedio le baja precisión
+al triage para que el paciente lo entienda, y eso lo paga el board.
+
+Del lado de core-api hay que hacer **una cosa** para que llegue a la PWA: que
+el serializer de `SupportTicket` exponga `agent_output["user_summary"]` como
+`user_summary`, igual que ya hace con `enhanced_subject`/`enhanced_body`. Sin
+eso el campo se persiste en el jsonb y nadie lo ve. Dos consumidores:
+
+- La `SupportTicketCard` de la burbuja, para mostrarle al usuario lo que se
+  registró en vez del body técnico.
+- La tool `ver_ticket` del agente, que ya lo lee del `show` si viene y lo
+  prefiere sobre `enhanced_body` cuando le cuenta el ticket al usuario. Si no
+  viene —ticket viejo, o todavía sin clasificar— el agente lo resume él mismo.
+
+`enhanced_body` sigue siendo el body del issue de GitHub: ahí no cambia nada.
 
 Eso se guarda **verbatim** en `support_tickets.agent_output` (jsonb). Al ser
 jsonb, si más adelante agregamos un campo no hay migración: aparece solo.

@@ -354,7 +354,9 @@ def ver_ticket(ticket_id: int, tool_context: ToolContext) -> dict:
       status: "ok" | "no_encontrado" | "sin_perfil" | "requiere_sesion" |
         "no_configurado" | "error".
       ticket: {id, enhanced_subject, enhanced_body, classification, channel,
-        pending_github_push, created_at}.
+        pending_github_push, created_at} y, si el ticket ya fue clasificado,
+        `user_summary`: el resumen escrito para el usuario, que es el que hay
+        que leerle a el. `enhanced_body` es la nota interna del equipo.
     """
     identidad = _identidad(tool_context.state)
     if not identidad:
@@ -382,6 +384,14 @@ def ver_ticket(ticket_id: int, tool_context: ToolContext) -> dict:
 
     detalle = _resumen(ticket)
     detalle["enhanced_body"] = ticket.get("enhanced_body")
+    # El texto que el clasificador escribio PARA el usuario (ver
+    # `TicketClassification.user_summary` en ticket.py). Puede venir ausente:
+    # un ticket viejo se clasifico antes de que el campo existiera, y uno
+    # recien creado todavia no paso por el clasificador. En ese caso solo
+    # queda el body tecnico, y el prompt dice que hay que traducirlo.
+    resumen_usuario = ticket.get("user_summary")
+    if resumen_usuario:
+        detalle["user_summary"] = resumen_usuario
     return {"status": "ok", "ticket": detalle}
 
 
