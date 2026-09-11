@@ -233,6 +233,68 @@ Siete campos, siempre los siete. Vocabularios cerrados:
 - `priority`: `low` | `medium` | `high`
 - `severity`: `S1` | `S2` | `S3` | `S4`
 
+### Cómo se construye `priority` (2026-09-10)
+
+Lo escribimos aquí porque el campo ya lo consumen tres lugares de su lado
+—`board_fields` lo mapea al single-select del board, `PublicSupportTicketSerializer`
+lo expone a la PWA y la fecha compromiso lo usa como verificación— y hasta hoy
+la regla que lo produce sólo vivía en nuestro prompt.
+
+**El agente no elige `priority` directamente: elige `severity` y de ahí la
+deriva.** El orden importa. Primero lee la matriz del SLA con
+`buscar_documentacion` (no la sabe de memoria: la matriz se actualiza
+reimportando el documento al dataStore, sin deploy), decide la severidad
+contra esa matriz, y hasta entonces colapsa:
+
+| `severity` | Qué es | `priority` |
+| --- | --- | --- |
+| S1 | Crítico: aplicación fuera de línea, datos en riesgo | `high` |
+| S2 | Alto: funcionalidad principal interrumpida | `high` |
+| S3 | Medio: problemas menores con la funcionalidad | `medium` |
+| S4 | Bajo: solicitudes o mejoras | `low` |
+
+Esa tabla vive en el prompt, no en el schema, a propósito: el colapso es una
+decisión de producto y ajustarlo no debería costar un cambio de contrato ni un
+release de ustedes. La garantía que sí pueden asumir es la **coherencia**: si
+`severity` viene, `priority` es siempre su colapso según esa tabla. Un par
+incoherente (`S1` con `medium`, por decir) es un bug nuestro, no un caso que
+tengan que resolver.
+
+Tres reglas más que no salen de la matriz y que explican prioridades que a
+simple vista parecen altas de más:
+
+- La matriz aplica a incidencias **técnicas**. Una duda, una consulta de uso o
+  una solicitud de mejora es S4 → `low`, aunque venga redactada como queja.
+- Un servicio que el usuario **no recibió** —no llegó su receta, sus
+  resultados, su llamada o su cita— cuenta como funcionalidad principal
+  interrumpida: S2 → `high`. Aplica aunque no haya error técnico visible y
+  aunque el usuario lo pida amablemente. Esta regla tiene precedencia sobre
+  `low`.
+- La urgencia que declara el usuario ("urgente", "lo necesito hoy") **no sube
+  la prioridad**. La define el impacto según el SLA. Si esa urgencia importa
+  —una fecha comprometida— el agente la deja en `enhanced_body`, no en
+  `priority`.
+
+**El default cuando no hay matriz.** Si la búsqueda en documentación no trae
+la matriz, el agente no reintenta reformulando: asigna `priority: "medium"`
+con `severity: "S3"`, `sla_resolution` en cadena vacía, y abre `enhanced_body`
+con la línea `> SLA no encontrado en la documentación: prioridad asignada por
+defecto.` Un `medium` acompañado de `sla_resolution` vacío es, entonces, la
+firma de ese caso: prioridad asignada por defecto, no leída. Si algún día
+quieren distinguirlo en el board, esa es la condición, y no hace falta que
+mandemos un campo nuevo.
+
+**Lo que les toca a ustedes: nada, salvo no recalcularlo.** `priority` llega
+resuelto y `board_fields` ya lo mapea. Dos cosas que conviene no hacer:
+
+- No derivar `priority` de `severity` de su lado. Ya viene derivado, y una
+  segunda tabla en Ruby es la que se va a quedar vieja cuando soporte ajuste
+  el colapso.
+- No tratar un valor fuera del enum como fatal. Ya está resuelto así en §8
+  (se guarda verbatim y se loguea) y en `board_fields` (se salta la opción que
+  el campo no ofrezca, sin excepción). Es la lectura correcta: el vocabulario
+  lo puede ampliar el agente antes que ustedes.
+
 ### `severity` y `sla_resolution`: la fecha compromiso (2026-09-08)
 
 `priority` colapsa las cuatro severidades del SLA en los tres valores que

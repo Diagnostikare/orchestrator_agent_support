@@ -146,9 +146,21 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements-dev.txt
 ```
 
-`agent/.env` (no versionado) con:
+`agent/.env` no se edita a mano ni se versiona: lo **genera** `./deploy.sh` a
+partir del ambiente que elijas.
 
-| Variable | Valor | Nota |
+```bash
+./deploy.sh beta --env-only     # agent/.env apuntando a beta, sin desplegar
+```
+
+La config de cada ambiente vive en `deploy/<ambiente>.env` (versionado, sin
+secretos); ver *Ambientes*, mas abajo. El `AGENT_API_SECRET` no esta en ningun
+archivo del repo: el script lo lee de Secret Manager del proyecto destino en
+cada corrida.
+
+Variables que terminan en `agent/.env`:
+
+| Variable | Valor en beta | Nota |
 | --- | --- | --- |
 | `GOOGLE_GENAI_USE_VERTEXAI` | `TRUE` | |
 | `GOOGLE_CLOUD_PROJECT` | `architecture-beta` | |
@@ -156,8 +168,8 @@ python3 -m venv .venv
 | `DOCS_DATASTORE_STANDARD` | `orquestor-support-collection_documents` | |
 | `DOCS_DATASTORE_MEDICAL` | igual al anterior | hoy no hay docs restringidas a medicos |
 | `DATASTORE_LOCATION` | `global` (default) | opcional |
-| `CORE_API_BASE_URL` | `https://<host de core-api>` | sin slash final; sin esto las tools de tickets responden `no_configurado` |
-| `AGENT_API_SECRET` | el mismo valor que en core-api | shared secret del header `X-Agent-Secret` |
+| `CORE_API_BASE_URL` | `https://core-api-beta.diagnostikare.com` | sin slash final; sin esto las tools de tickets responden `no_configurado` |
+| `AGENT_API_SECRET` | desde Secret Manager | shared secret del header `X-Agent-Secret` |
 
 Credenciales:
 
@@ -186,6 +198,36 @@ sesion (`profile.category` / `task`) desde la UI.
 `evals/run.sh` pisa `GOOGLE_CLOUD_LOCATION=global` porque el juez de `adk eval`
 toma la location del ambiente y con `us-central1` tira 404 silencioso
 (los casos quedan en `NOT_EVALUATED`, sin un solo FAILED visible).
+
+## Ambientes
+
+El agente se despliega al proyecto de GCP que diga el ambiente elegido. Cada
+uno es un archivo en `deploy/`:
+
+| Ambiente | Proyecto | Engine |
+| --- | --- | --- |
+| `beta` | `architecture-beta` | `6890865320911699968` (el que usa core-api) |
+| `production` | `architecture-production` | todavia ninguno; ver [docs/deploy-produccion.md](docs/deploy-produccion.md) |
+
+Esos archivos se versionan y **no llevan secretos**: solo la config y los
+metadatos de deploy (`DEPLOY_PROJECT`, `DEPLOY_REGION`, `DEPLOY_ENGINE_ID`,
+`DEPLOY_SECRET_AGENT_API`). Para sumar un ambiente, se copia uno de los dos y
+se ajustan los valores — no hay que tocar codigo.
+
+`./deploy.sh <ambiente>` regenera `agent/.env`, corre los tests y despliega.
+Antes de subir nada valida que:
+
+- las cuatro variables criticas tengan valor (un `CORE_API_BASE_URL` vacio deja
+  el CRUD de tickets muerto, y el agente lo reporta como si fuera otra cosa);
+- `GOOGLE_CLOUD_PROJECT` coincida con `DEPLOY_PROJECT` — desalineados, el
+  agente despliega en un proyecto y le habla a la infra del otro;
+- el secreto exista en Secret Manager del proyecto destino.
+
+Banderas: `--env-only` (solo genera `agent/.env`, util para `adk web`),
+`--dry-run` (imprime el comando sin ejecutarlo), `--skip-tests`, `--yes`.
+
+El `agent/.env` anterior se respalda en `agent/.env.bak` en cada corrida, asi
+que cambiar de ambiente y volver no pierde nada.
 
 ## Deploy
 
@@ -223,6 +265,13 @@ gcloud config set project architecture-beta
 ### 3. Deploy (actualizar la instancia existente)
 
 ```bash
+./deploy.sh beta
+```
+
+Genera `agent/.env` desde `deploy/beta.env` + Secret Manager, corre `pytest`,
+muestra a que proyecto y engine va a pegarle, y pide confirmacion. Equivale a:
+
+```bash
 .venv/bin/adk deploy agent_engine \
   --project=architecture-beta \
   --region=us-central1 \
@@ -232,7 +281,7 @@ gcloud config set project architecture-beta
   agent
 ```
 
-Tres cosas que hay que respetar en ese comando:
+Tres cosas que el script ya respeta, y que hay que cuidar si se corre a mano:
 
 - **`--agent_engine_id` no es opcional.** Sin el, `adk deploy` crea un
   reasoningEngine nuevo, el deploy "funciona", y core-api sigue hablandole al
@@ -291,7 +340,11 @@ bien el state.
 
 Solo para un ambiente nuevo, no para actualizar. Es el mismo comando **sin**
 `--agent_engine_id`; imprime el ID nuevo, que hay que darle al equipo de
-core-api para que lo configure:
+core-api para que lo configure — y anotarlo en `DEPLOY_ENGINE_ID` del
+`deploy/<ambiente>.env`, para que los siguientes deploys actualicen esa
+instancia en vez de seguir creando engines. Con el script basta dejar
+`DEPLOY_ENGINE_ID` vacio; el resumen previo avisa que va a crear uno nuevo. A
+mano:
 
 ```bash
 .venv/bin/adk deploy agent_engine \
