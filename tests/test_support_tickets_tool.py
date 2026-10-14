@@ -468,6 +468,8 @@ def test_el_contexto_del_cliente_acompaña_al_ticket(llamadas, configurado):
             "app_version": "1.15.0",
             "device": "iPhone",
             "chat_surface": "support_bubble",
+            "posthog_session_id": "019a1b2c-3d4e-7f00-8a9b-0c1d2e3f4a5b",
+            "posthog_distinct_id": "36",
         },
     }
 
@@ -478,6 +480,8 @@ def test_el_contexto_del_cliente_acompaña_al_ticket(llamadas, configurado):
     assert metadata["app_version"] == "1.15.0"
     assert metadata["device"] == "iPhone"
     assert metadata["chat_surface"] == "support_bubble"
+    assert metadata["posthog_session_id"] == "019a1b2c-3d4e-7f00-8a9b-0c1d2e3f4a5b"
+    assert metadata["posthog_distinct_id"] == "36"
 
 
 def test_el_contexto_del_cliente_no_puede_meter_claves_arbitrarias(llamadas, configurado):
