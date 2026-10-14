@@ -109,7 +109,15 @@ Submotivo = Literal["", "no_entra", "se_corto", "sin_atencion", "otro"]
 # Claves de `client_context` que se copian a la metadata del ticket. Allowlist y
 # no un `update()` del dict completo: el contexto lo arma el cliente, y aunque
 # core-api ya lo sanea, la metadata termina renderizada en el issue de GitHub.
-CONTEXTO_EN_METADATA = ("route", "app_version", "device", "chat_surface")
+# Los `posthog_*` llevan del issue a la sesion de PostHog (replay y eventos).
+CONTEXTO_EN_METADATA = (
+    "route",
+    "app_version",
+    "device",
+    "chat_surface",
+    "posthog_session_id",
+    "posthog_distinct_id",
+)
 
 
 # --- configuracion ----------------------------------------------------------
