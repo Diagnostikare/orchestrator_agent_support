@@ -106,7 +106,7 @@ confiables:
 | Dato | De donde sale | Se puede creer |
 | --- | --- | --- |
 | `reporter_id`, `contact_name`, `site_id`, `site_slug` | `session_state["profile"]`, que core-api resuelve de la sesion autenticada | si |
-| `route`, `app_version`, `device`, `chat_surface` | `session_state["client_context"]`, que arma el navegador y core-api saneo | es telemetria, no identidad |
+| `route`, `app_version`, `device`, `chat_surface`, `posthog_session_id`, `posthog_distinct_id` | `session_state["client_context"]`, que arma el navegador y core-api saneo | es telemetria, no identidad |
 | `motivo`, `submotivo` | los clasifica el modelo al llamar `crear_ticket` | no: se validan contra `TAXONOMIA` |
 
 `motivo` y `submotivo` son `Literal`, no `str`: ADK los publica como `enum` en

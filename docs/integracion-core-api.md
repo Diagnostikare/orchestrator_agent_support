@@ -580,7 +580,9 @@ El efecto de esa omisión no era cosmético. Sin `profile` en el `sessionState`:
       "route": "/saludgs/es/appointments",
       "app_version": "1.15.0",
       "device": "Mozilla/5.0 (iPhone; …)",
-      "chat_surface": "support_bubble_app"
+      "chat_surface": "support_bubble_app",
+      "posthog_session_id": "019a1b2c-3d4e-7f00-8a9b-0c1d2e3f4a5b",
+      "posthog_distinct_id": "36"
     }
   }
 }
