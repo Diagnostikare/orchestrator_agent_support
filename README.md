@@ -368,7 +368,8 @@ Engine, no del contenedor).
 
 - **Sumar o actualizar documentacion**: se sube el archivo al bucket
   `gs://architecture-beta-orquestor-support-docs` y se reimporta el dataStore.
-  El agente no cambia.
+  El agente no cambia. Las fuentes de las guias y los comandos para subirlas
+  viven en `knowledge/` (ver `knowledge/README.md`).
 - **Cambiar la matriz de severidad del SLA**: el agente la lee de la
   documentacion en cada clasificacion, asi que basta reimportar el documento.
   (En cambio el mapeo S1-S4 -> `low/medium/high` vive en el prompt de

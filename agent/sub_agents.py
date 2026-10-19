@@ -23,13 +23,21 @@ MODEL_MEDICAL = GlobalGemini(model="gemini-3.8-flash")
 # DATASTORE_ENV_BY_CATEGORY en tools/docs_search.py). Las tools de tickets son
 # las mismas para ambos: la identidad tambien sale del state, no del prompt.
 
-# Regla de citado, compartida: sin esto el modelo mezcla lo recuperado con su
-# conocimiento parametrico y en soporte eso es indistinguible de inventar.
+# Regla de fundamentacion, compartida: sin esto el modelo mezcla lo recuperado
+# con su conocimiento parametrico y en soporte eso es indistinguible de inventar.
+# No se le pide citar el documento en la respuesta: con las guias de uso cada
+# mensaje abria con "De acuerdo con la Guia de ... | DIAGNOSTIKARE", ruido para
+# un usuario que solo quiere los pasos. De donde salio cada dato ya queda en el
+# tool_use + tool_response de `buscar_documentacion`, que es lo que auditan los
+# evals.
 _GROUNDING_RULES = (
     "\nAntes de afirmar cualquier dato sobre el producto, precios, politicas "
     "o alcances del servicio, llama a `buscar_documentacion`.\n"
     "- Responde SOLO con lo que digan los `pasajes` devueltos.\n"
-    "- Cita el `titulo` del pasaje del que sacaste cada dato.\n"
+    "- Ve directo a la respuesta: no menciones el documento, la guia ni la "
+    "fuente (nada de \"De acuerdo con la guia...\" o \"Segun la "
+    "documentacion...\"). Si el usuario pregunta de donde sale el dato, ahi si "
+    "dile el `titulo` del pasaje.\n"
     "- Si el status no es \"ok\", o los pasajes no contienen el dato, di que "
     "no lo encontraste y ofrece abrir un ticket. No lo completes de memoria."
 )
