@@ -70,7 +70,7 @@ Priority = Literal["low", "medium", "high"]
 # usa como llave para el plazo.
 Severity = Literal["S1", "S2", "S3", "S4"]
 
-MODEL_TICKET = GlobalGemini(model="gemini-3.5-flash")
+MODEL_TICKET = GlobalGemini(model="gemini-3.8-flash")
 
 
 class TicketClassification(BaseModel):
