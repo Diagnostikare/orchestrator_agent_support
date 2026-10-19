@@ -15,9 +15,9 @@ from .tools.docs_search import buscar_documentacion
 from .tools.support_tickets import consultar_mis_tickets, crear_ticket, ver_ticket
 
 # Flash alcanza para FAQs y guia a documentacion.
-MODEL_STANDARD = GlobalGemini(model="gemini-3.5-flash")
+MODEL_STANDARD = GlobalGemini(model="gemini-3.8-flash")
 # El agente medico se separa para poder subirle el tier sin tocar al resto.
-MODEL_MEDICAL = GlobalGemini(model="gemini-3.5-flash")
+MODEL_MEDICAL = GlobalGemini(model="gemini-3.8-flash")
 
 # `buscar_documentacion` elige el dataStore segun la categoria del state (ver
 # DATASTORE_ENV_BY_CATEGORY en tools/docs_search.py). Las tools de tickets son
