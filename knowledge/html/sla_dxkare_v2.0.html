@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Acuerdo de Nivel de Servicio (SLA) v2.0 — Plataforma DIAGNOSTIKARE</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <meta name="doc_id" content="sla-dxkare-v2-0">
+  <meta name="tipo" content="sla">
+  <meta name="version" content="2.0">
+  <meta name="fecha_revision" content="2025-09-20">
+  <meta name="proveedor" content="Servicios Clínicos Inteligentes DXKARE (DIAGNOSTIKARE)">
+  <meta name="cliente" content="[NOMBRE_DEL_CLIENTE]">
+  <meta name="vigencia" content="12 meses desde la firma del contrato">
+  <meta name="idioma" content="es">
+  <meta name="paises_aplicables" content="[MX, PE, AR, BR]">
+  <meta name="audiencia" content="[cliente_corporativo, agente_soporte, operaciones_clinicas, tecnologia]">
+  <meta name="autoridad" content="contractual — prevalece el Contrato Marco y los Términos y Condiciones">
+  <meta name="responsable" content="Mtra. Xóchitl Caballero Cárdenas — Líder de Tecnología">
+  <meta name="cc" content="Mtra. Mónica Maldonado Sandoval — Responsable de Calidad y Cumplimiento">
+</head>
+<body>
+<h1 id="acuerdo-de-nivel-de-servicio-sla-v20--plataforma-diagnostikare">Acuerdo de Nivel de Servicio (SLA) v2.0 — Plataforma DIAGNOSTIKARE</h1>
+<p>Documento contractual que define disponibilidad, tiempos de respuesta, soporte, escalamiento, métricas de calidad, seguridad, mantenimiento, quejas, penalizaciones y exclusiones del servicio de atención primaria en salud a distancia de DIAGNOSTIKARE. Versión 2.0, revisada el 20 de septiembre de 2025.</p>
+<p><strong>Ficha del documento:</strong> <code>doc_id: sla-dxkare-v2-0</code> · tipo: sla · versión: 2.0 · fecha de revisión: 2025-09-20 · proveedor: Servicios Clínicos Inteligentes DXKARE (DIAGNOSTIKARE) · vigencia: 12 meses desde la firma del contrato · autoridad: contractual — prevalece el Contrato Marco y los Términos y Condiciones · países aplicables: [MX, PE, AR, BR] · idioma: es.</p>
+<hr />
+<h2 id="1-introducción-y-propósito-del-sla">1. Introducción y propósito del SLA</h2>
+<p>Este Acuerdo de Nivel de Servicio (SLA, <em>Service Level Agreement</em>) define los compromisos y parámetros de calidad acordados entre <strong>Servicios Clínicos Inteligentes DXKARE (DIAGNOSTIKARE)</strong> y <strong>[NOMBRE_DEL_CLIENTE]</strong> respecto a la operación y el soporte de la plataforma digital de atención primaria en salud.</p>
+<p>La plataforma ofrece servicios profesionales de <strong>medicina general, pediatría, nutrición y psicología</strong>, prestados por <strong>videollamada y llamada telefónica</strong>, para dar acceso oportuno, seguro y confiable a atención médica remota.</p>
+<p>El SLA establece los estándares comprometidos por DIAGNOSTIKARE en <strong>disponibilidad, tiempos de respuesta ante incidencias, mantenimiento programado, soporte técnico y calidad de atención</strong>. Estos estándares se sustentan en buenas prácticas internacionales y en marcos de calidad y seguridad en proceso de certificación: <strong>ISO 9001, ISO 13485 e ISO 27001</strong>.</p>
+<p>El documento también define los mecanismos de <strong>monitoreo, reporte y revisión periódica</strong> para asegurar la mejora continua del servicio.</p>
+<p>Este SLA <strong>forma parte integral del contrato de prestación de servicios</strong> y refleja el compromiso de ambas partes por brindar atención médica remota eficaz, oportuna y centrada en la seguridad del paciente.</p>
+<hr />
+<h2 id="2-alcance-del-servicio">2. Alcance del servicio</h2>
+<p>El alcance de este SLA se define en dos dimensiones: <strong>qué servicios cubre</strong> (sección 2.1) y <strong>a quién cubre</strong> (sección 2.2). Todo lo que no esté enumerado en esas dos secciones queda fuera del alcance del acuerdo.</p>
+<h3 id="21-servicios-incluidos-en-el-sla">2.1. Servicios incluidos en el SLA</h3>
+<p>El alcance del SLA de DIAGNOSTIKARE cubre:</p>
+<ul>
+<li>Asesorías con profesionales de salud por <strong>videollamada</strong> y <strong>llamada telefónica</strong>.</li>
+<li>Acceso a profesionales calificados en <strong>medicina general, pediatría, nutrición y psicología</strong>.</li>
+<li>La <strong>plataforma digital</strong>, que comprende App/Web, Back Office clínico y administrativo, y tableros de uso para administradores.</li>
+<li><strong>Atención a usuarios</strong> (soporte no clínico).</li>
+</ul>
+<blockquote>
+<p><strong>Nota de alcance:</strong> el acceso a los profesionales está sujeto a disponibilidad en calendario y a los tiempos de espera máximos definidos en este SLA.</p>
+</blockquote>
+<h3 id="22-usuarios-cubiertos-por-el-servicio">2.2. Usuarios cubiertos por el servicio</h3>
+<p>Son usuarios del servicio DIAGNOSTIKARE:</p>
+<ul>
+<li><strong>Pacientes registrados</strong>, ya sean individuales o beneficiarios de empresas o aseguradoras.</li>
+<li><strong>Administradores o representantes</strong> de la entidad contratante.</li>
+</ul>
+<hr />
+<h2 id="3-niveles-de-servicio-comprometidos">3. Niveles de servicio comprometidos</h2>
+<p>DIAGNOSTIKARE compromete dos tipos de nivel de servicio: la <strong>disponibilidad técnica de la plataforma</strong> (sección 3.1) y los <strong>horarios de disponibilidad de los servicios de salud y de atención a usuarios</strong> (sección 3.2).</p>
+<h3 id="31-disponibilidad-de-la-plataforma">3.1. Disponibilidad de la plataforma</h3>
+<p>Compromisos de disponibilidad (<em>uptime</em>) de la plataforma digital DIAGNOSTIKARE:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Indicador</th>
+<th>Compromiso</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Disponibilidad mínima de plataforma</td>
+<td><strong>99.5% mensual</strong></td>
+</tr>
+<tr class="even">
+<td>Tiempo máximo de inactividad programada</td>
+<td><strong>3.5 horas al mes</strong>, con aviso previo mínimo de <strong>48 horas</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="32-horarios-de-disponibilidad-de-los-servicios-de-salud-y-de-atención">3.2. Horarios de disponibilidad de los servicios de salud y de atención</h3>
+<p>Horarios comprometidos de atención de DIAGNOSTIKARE, por servicio:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Servicio</th>
+<th>Horario comprometido</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Atención médica (medicina general)</td>
+<td><strong>24 × 7</strong>, los 7 días de la semana, incluyendo días festivos</td>
+</tr>
+<tr class="even">
+<td>Psicología</td>
+<td><strong>08:00 a 20:00 h</strong>, de lunes a viernes</td>
+</tr>
+<tr class="odd">
+<td>Nutrición</td>
+<td><strong>09:00 a 21:00 h</strong>, de lunes a viernes</td>
+</tr>
+<tr class="even">
+<td>Pediatría</td>
+<td><strong>24 horas semanales</strong>, de lunes a viernes</td>
+</tr>
+<tr class="odd">
+<td>Atención a usuarios (soporte no técnico)</td>
+<td><strong>08:00 a 20:00 h</strong>, de lunes a viernes</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="4-clasificación-de-incidencias-tiempos-de-respuesta-y-resolución">4. Clasificación de incidencias, tiempos de respuesta y resolución</h2>
+<p>Este SLA clasifica las incidencias en tres tipos: <strong>no técnicas</strong> (sección 4.1), <strong>técnicas</strong> (sección 4.2) e <strong>informativas</strong> (sección 4.4). Los tiempos máximos de respuesta y resolución aplican a las incidencias técnicas y se determinan por su nivel de severidad, S1 a S4, según la matriz de la sección 4.3.</p>
+<h3 id="41-incidencias-no-técnicas">4.1. Incidencias no técnicas</h3>
+<p>Una <strong>incidencia no técnica</strong> es una duda o problema de un Cliente/Usuario al interactuar con la plataforma de DIAGNOSTIKARE que puede ser resuelta por el responsable de <strong>Atención a Usuarios</strong>.</p>
+<p>Estas incidencias se atienden <strong>vía WhatsApp de Atención a Usuarios</strong>.</p>
+<h3 id="42-incidencias-técnicas">4.2. Incidencias técnicas</h3>
+<p>Una <strong>incidencia técnica</strong> es un problema técnico confirmado por el área de Atención a Usuarios, reportado por el área de <strong>Operaciones Clínicas</strong> (cliente interno) o por los Clientes/Usuarios, que se delega al <strong>área técnica</strong> para su atención.</p>
+<p>Se incluyen en esta categoría:</p>
+<ul>
+<li>Reportes relacionados con el funcionamiento o el uso del <strong>Software Analizador de Síntomas</strong>.</li>
+<li><strong>Incidentes de Seguridad de la Información</strong>: caída de los servicios, ciberataques, incidentes de suplantación o eventos similares, <strong>incluidos los ocurridos en servicios prestados por terceros</strong>.</li>
+</ul>
+<p><strong>Horario de atención de incidentes técnicos:</strong> lunes a viernes de <strong>09:00 a 18:00 h</strong>, con excepción de los tickets de <strong>severidad crítica</strong>, que se atienden fuera de ese horario.</p>
+<h3 id="43-matriz-de-severidad-tiempos-de-respuesta-y-de-resolución">4.3. Matriz de severidad: tiempos de respuesta y de resolución</h3>
+<p>Tiempos máximos comprometidos por DIAGNOSTIKARE según la severidad del incidente técnico:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Severidad</th>
+<th>Descripción</th>
+<th>Tiempo de respuesta</th>
+<th>Tiempo de resolución</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Crítico (S1)</strong></td>
+<td>Aplicación fuera de línea o datos en riesgo</td>
+<td><strong>≤ 1 hora</strong></td>
+<td><strong>≤ 6 horas</strong></td>
+</tr>
+<tr class="even">
+<td><strong>Alto (S2)</strong></td>
+<td>Funcionalidad principal interrumpida</td>
+<td><strong>≤ 4 horas hábiles</strong></td>
+<td><strong>≤ 8 horas hábiles</strong></td>
+</tr>
+<tr class="odd">
+<td><strong>Medio (S3)</strong></td>
+<td>Problemas menores con la funcionalidad</td>
+<td><strong>≤ 1 día hábil</strong></td>
+<td><strong>≤ 3 días hábiles</strong></td>
+</tr>
+<tr class="even">
+<td><strong>Bajo (S4)</strong></td>
+<td>Solicitudes o mejoras</td>
+<td><strong>≤ 2 días hábiles</strong></td>
+<td>Según prioridad</td>
+</tr>
+</tbody>
+</table>
+<p>Los mismos compromisos, enunciados por severidad:</p>
+<ul>
+<li><strong>S1 — Crítico.</strong> Aplicación fuera de línea o datos en riesgo. Respuesta en 1 hora o menos; resolución en 6 horas o menos. Es la única severidad que se atiende fuera del horario de 09:00 a 18:00 h.</li>
+<li><strong>S2 — Alto.</strong> Funcionalidad principal interrumpida. Respuesta en 4 horas hábiles o menos; resolución en 8 horas hábiles o menos.</li>
+<li><strong>S3 — Medio.</strong> Problemas menores con la funcionalidad. Respuesta en 1 día hábil o menos; resolución en 3 días hábiles o menos.</li>
+<li><strong>S4 — Bajo.</strong> Solicitudes o mejoras. Respuesta en 2 días hábiles o menos; la resolución se programa según prioridad.</li>
+</ul>
+<h3 id="44-incidencias-informativas">4.4. Incidencias informativas</h3>
+<p>Una <strong>incidencia informativa</strong> consiste en atender las necesidades de conocimiento que los Clientes/Usuarios requieren para poder recibir el servicio.</p>
+<hr />
+<h2 id="5-soporte-técnico-canales-horarios-e-idiomas">5. Soporte técnico: canales, horarios e idiomas</h2>
+<p>Condiciones de soporte de DIAGNOSTIKARE:</p>
+<ul>
+<li><strong>Canales disponibles:</strong> WhatsApp y correo electrónico.</li>
+<li><strong>Tiempos de primera respuesta:</strong> WhatsApp <strong>≤ 10 minutos</strong> en horario hábil; correo electrónico <strong>≤ 2 horas</strong>.</li>
+<li><strong>Horario de atención a usuarios:</strong> lunes a viernes, <strong>08:00 a 20:00 h</strong>, tiempo de la Ciudad de México.</li>
+<li><strong>Horario de atención de incidencias técnicas:</strong> lunes a viernes, <strong>09:00 a 18:00 h</strong>, tiempo de la Ciudad de México.</li>
+<li><strong>Idiomas disponibles:</strong> español. Otros idiomas quedan sujetos a acuerdo específico.</li>
+</ul>
+<hr />
+<h2 id="6-protocolo-de-escalamiento-de-incidencias">6. Protocolo de escalamiento de incidencias</h2>
+<p>Niveles de escalamiento de soporte en DIAGNOSTIKARE:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Nivel</th>
+<th>Responsable</th>
+<th>Ventana</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Primer nivel</strong></td>
+<td>Atención a Clientes/Usuarios</td>
+<td><strong>0 a 24 horas</strong></td>
+</tr>
+<tr class="even">
+<td><strong>Segundo nivel</strong></td>
+<td>Soporte técnico especializado</td>
+<td><strong>24 a 48 horas</strong></td>
+</tr>
+<tr class="odd">
+<td><strong>Tercer nivel</strong></td>
+<td>Dirección técnica</td>
+<td><strong>más de 48 horas</strong>, o eventos críticos sin resolución</td>
+</tr>
+</tbody>
+</table>
+<p>Reglas del protocolo:</p>
+<ul>
+<li><strong>Todo incidente no resuelto en 24 horas se escala automáticamente</strong> al siguiente nivel.</li>
+<li>Los responsables de cada nivel de soporte se designan <strong>con nombre y cargo en el contrato marco</strong>.</li>
+</ul>
+<hr />
+<h2 id="7-métricas-de-calidad-y-monitoreo-del-servicio">7. Métricas de calidad y monitoreo del servicio</h2>
+<p>Indicadores comprometidos por DIAGNOSTIKARE para medir la calidad del servicio:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Métrica</th>
+<th>Objetivo</th>
+<th>Frecuencia de medición</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Nivel de satisfacción de los usuarios</td>
+<td><strong>mínimo 80%</strong></td>
+<td>Trimestral</td>
+</tr>
+<tr class="even">
+<td>Tasa de reintentos por fallo técnico</td>
+<td><strong>menor a 2%</strong></td>
+<td>—</td>
+</tr>
+<tr class="odd">
+<td>Resolución en primer contacto (FCR)</td>
+<td><strong>≥ 70%</strong></td>
+<td>—</td>
+</tr>
+<tr class="even">
+<td>NPS (<em>Net Promoter Score</em>)</td>
+<td><strong>≥ 60</strong></td>
+<td>—</td>
+</tr>
+<tr class="odd">
+<td>Tiempo promedio de espera para asesoría médica</td>
+<td><strong>≤ 15 minutos</strong></td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8-seguridad-confidencialidad-y-protección-de-datos">8. Seguridad, confidencialidad y protección de datos</h2>
+<p>Los compromisos de seguridad y confidencialidad de DIAGNOSTIKARE se agrupan en tres bloques: la <strong>normativa de salud</strong> aplicable al expediente clínico (sección 8.1), la <strong>normativa de protección de datos personales</strong> en México y América Latina (sección 8.2), y las <strong>obligaciones de notificación de brechas</strong> y de resguardo de credenciales (sección 8.3).</p>
+<h3 id="81-normativa-de-salud-aplicable">8.1. Normativa de salud aplicable</h3>
+<p>DIAGNOSTIKARE cumple con las regulaciones aplicables en materia de salud y protección de datos clínicos:</p>
+<ul>
+<li><strong>NOM-004-SSA3-2012</strong>, Norma Oficial Mexicana del Expediente Médico.</li>
+<li><strong>NOM-024-SSA3-2012</strong>, Norma Oficial Mexicana de Sistemas de información de registro electrónico para la Salud e intercambio de información en salud.</li>
+</ul>
+<p>Toda información relacionada con el estado de salud, tratamientos y demás información clínica de los Usuarios <strong>es tratada con confidencialidad y almacenada de forma segura</strong>.</p>
+<h3 id="82-normativa-de-protección-de-datos-personales">8.2. Normativa de protección de datos personales</h3>
+<p>DIAGNOSTIKARE cumple con las regulaciones de protección de datos personales y privacidad aplicables en México y América Latina, incluyendo de forma enunciativa y no limitativa:</p>
+<ul>
+<li><strong>México</strong> — Ley Federal de Protección de Datos Personales en Posesión de los Particulares (LFPDPPP).</li>
+<li><strong>Perú</strong> — Ley N° 29733, Ley de Protección de Datos Personales.</li>
+<li><strong>Argentina</strong> — Ley N° 25.326 de Protección de los Datos Personales.</li>
+<li><strong>Brasil</strong> — Ley General de Protección de Datos (LGPD), cuando aplique.</li>
+</ul>
+<p>Los datos personales y clínicos de los Usuarios se recaban, almacenan, tratan y resguardan conforme a los principios de <strong>licitud, consentimiento, información, calidad, finalidad, lealtad, proporcionalidad y responsabilidad</strong>.</p>
+<h3 id="83-notificación-de-brechas-y-obligaciones-del-cliente">8.3. Notificación de brechas y obligaciones del Cliente</h3>
+<ul>
+<li>En caso de <strong>brecha de datos personales o clínicos</strong>, DIAGNOSTIKARE notificará al Cliente en un plazo <strong>máximo de 72 horas</strong>.</li>
+<li>Los Clientes deben <strong>asegurar la confidencialidad de credenciales y dispositivos de acceso</strong>.</li>
+</ul>
+<hr />
+<h2 id="9-mantenimiento-y-actualizaciones-de-la-plataforma">9. Mantenimiento y actualizaciones de la plataforma</h2>
+<p>Condiciones de mantenimiento programado y actualizaciones:</p>
+<ul>
+<li>Las actualizaciones se clasifican en <strong>correctivas, evolutivas y de seguridad</strong>.</li>
+<li>Las actualizaciones del sistema se realizan preferentemente en <strong>horarios de menor afluencia</strong> del servicio de atención en salud.</li>
+<li>Toda <strong>ventana de mantenimiento programado se notifica con al menos 48 horas de antelación</strong>.</li>
+<li>Ante <strong>vulnerabilidades críticas</strong>, DIAGNOSTIKARE podrá realizar actualizaciones <strong>sin previo aviso</strong> para proteger al usuario.</li>
+</ul>
+<hr />
+<h2 id="10-gestión-de-quejas-y-reclamaciones">10. Gestión de quejas y reclamaciones</h2>
+<p>Una <strong>queja</strong> es cualquier reporte presentado por los Clientes/Usuarios que constituya un incumplimiento de los servicios brindados por DIAGNOSTIKARE respecto a lo contratado, y que impacte negativamente la satisfacción. Incluye su registro, atención y seguimiento.</p>
+<p>Condiciones de gestión:</p>
+<ul>
+<li>Las quejas se presentan ante el área de <strong>Atención a Usuarios</strong>, en horario de <strong>08:00 a 20:00 h de lunes a viernes</strong>.</li>
+<li>Toda queja debe recibir <strong>folio y acuse de recibo</strong>.</li>
+<li>El <strong>tiempo máximo de resolución de una queja es de 10 días hábiles</strong>.</li>
+</ul>
+<hr />
+<h2 id="11-penalizaciones-y-compensaciones-por-incumplimiento">11. Penalizaciones y compensaciones por incumplimiento</h2>
+<ul>
+<li>El SLA se revisa en conjunto con los Clientes <strong>anualmente</strong>, durante el proceso de apertura o renovación del contrato.</li>
+<li>Ante <strong>incumplimiento sostenido</strong> del nivel de servicio se podrán aplicar compensaciones previamente acordadas.</li>
+<li>Las compensaciones pueden incluir <strong>créditos en cuenta, descuentos en la renovación o extensión del servicio sin costo</strong>.</li>
+<li>Toda compensación requiere que el incumplimiento haya sido <strong>validado por ambas partes</strong>.</li>
+</ul>
+<hr />
+<h2 id="12-exclusiones-casos-que-no-se-consideran-incumplimiento">12. Exclusiones: casos que no se consideran incumplimiento</h2>
+<p>No se considerará incumplimiento del SLA cuando el tiempo de inactividad se deba a:</p>
+<ul>
+<li><strong>Fuerza mayor</strong>: fallos de red global, ataques DDoS masivos y eventos equivalentes.</li>
+<li><strong>Errores de los Clientes/Usuarios</strong> o mal uso de la aplicación.</li>
+<li><strong>Mantenimiento previamente notificado</strong>.</li>
+<li><strong>Problemas en servicios de terceros</strong> fuera del control de Servicios Clínicos Inteligentes DXKARE.</li>
+<li><strong>Fallas de conectividad local</strong> del usuario final.</li>
+<li><strong>Incumplimiento de los requisitos normativos</strong> por parte del Cliente.</li>
+</ul>
+<hr />
+<h2 id="13-vigencia-revisión-y-jerarquía-contractual">13. Vigencia, revisión y jerarquía contractual</h2>
+<ul>
+<li>El SLA <strong>entra en vigor en la fecha de firma de la contratación</strong>.</li>
+<li>Se revisa <strong>cada 12 meses</strong> durante el proceso de renovación del contrato, si aplica.</li>
+<li>Cualquier modificación <strong>requiere el consentimiento de ambas partes</strong>.</li>
+<li>El SLA podrá ajustarse automáticamente en función de <strong>métricas históricas, evolución tecnológica o cambios regulatorios</strong>.</li>
+<li><strong>Prevalecerá siempre lo estipulado en el Contrato Marco y en los Términos y Condiciones.</strong></li>
+</ul>
+<hr />
+<h2 id="14-firmas-y-control-del-documento">14. Firmas y control del documento</h2>
+<ul>
+<li><strong>Responsable de Área:</strong> Mtra. Xóchitl Caballero Cárdenas — Líder de Tecnología.</li>
+<li><strong>CC:</strong> Mtra. Mónica Maldonado Sandoval — Responsable de Calidad y Cumplimiento.</li>
+<li><strong>Fecha de revisión:</strong> 20 de septiembre de 2025.</li>
+<li><strong>Versión:</strong> 2.0.</li>
+</ul>
+<hr />
+<h2 id="anexo-a-glosario-y-sinónimos-de-búsqueda">Anexo A. Glosario y sinónimos de búsqueda</h2>
+<p>Equivalencias de términos usados en este SLA, para resolver consultas formuladas con otras palabras:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Término del documento</th>
+<th>Sinónimos y formas en que lo pregunta un usuario</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>SLA</td>
+<td>Acuerdo de Nivel de Servicio, niveles de servicio, acuerdo de servicio, compromisos de servicio</td>
+</tr>
+<tr class="even">
+<td>DIAGNOSTIKARE</td>
+<td>DXKARE, Servicios Clínicos Inteligentes DXKARE, la plataforma, el proveedor</td>
+</tr>
+<tr class="odd">
+<td>Disponibilidad</td>
+<td>uptime, tiempo en línea, porcentaje de disponibilidad, caída del servicio, downtime</td>
+</tr>
+<tr class="even">
+<td>Severidad S1</td>
+<td>crítico, urgente, prioridad máxima, aplicación caída, sistema fuera de línea</td>
+</tr>
+<tr class="odd">
+<td>Severidad S2</td>
+<td>alto, funcionalidad principal interrumpida</td>
+</tr>
+<tr class="even">
+<td>Severidad S3</td>
+<td>medio, problema menor</td>
+</tr>
+<tr class="odd">
+<td>Severidad S4</td>
+<td>bajo, solicitud, mejora, <em>feature request</em></td>
+</tr>
+<tr class="even">
+<td>Tiempo de respuesta</td>
+<td>primera respuesta, cuánto tardan en contestar, acuse</td>
+</tr>
+<tr class="odd">
+<td>Tiempo de resolución</td>
+<td>cuánto tardan en arreglarlo, tiempo de solución</td>
+</tr>
+<tr class="even">
+<td>Incidencia técnica</td>
+<td>bug, falla, error del sistema, ticket técnico</td>
+</tr>
+<tr class="odd">
+<td>Incidencia no técnica</td>
+<td>duda, consulta, pregunta de uso</td>
+</tr>
+<tr class="even">
+<td>Atención a Usuarios</td>
+<td>soporte, mesa de ayuda, <em>help desk</em>, servicio al cliente</td>
+</tr>
+<tr class="odd">
+<td>Escalamiento</td>
+<td>escalar, subir de nivel, segundo nivel, dirección técnica</td>
+</tr>
+<tr class="even">
+<td>Mantenimiento programado</td>
+<td>ventana de mantenimiento, actualización planeada</td>
+</tr>
+<tr class="odd">
+<td>Queja</td>
+<td>reclamación, inconformidad, reclamo</td>
+</tr>
+<tr class="even">
+<td>Penalización</td>
+<td>compensación, crédito, descuento por incumplimiento</td>
+</tr>
+<tr class="odd">
+<td>Exclusión</td>
+<td>qué no cubre, casos no imputables, fuerza mayor</td>
+</tr>
+<tr class="even">
+<td>Brecha de datos</td>
+<td>fuga de información, incidente de seguridad, violación de datos</td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>
