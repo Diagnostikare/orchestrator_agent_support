@@ -4,3 +4,4 @@
 google-adk[eval]==2.7.1
 python-dotenv==1.2.3
 pytest==9.1.1
+markdown==3.11.1
