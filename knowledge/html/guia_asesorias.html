@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="es" xml:lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Guía de asesorías — agendar, entrar, reagendar y cancelar | DIAGNOSTIKARE</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<h1 id="guia-de-asesorias-agendar-entrar-reagendar-y-cancelar">Guía de asesorías — agendar, entrar, reagendar y cancelar</h1>
+<p>Guía para usuarios de la app de DIAGNOSTIKARE: cómo agendar una asesoría de salud, cómo elegir entre llamada y videollamada, cómo entrar a la videollamada, cómo reagendar, cómo cancelar y qué hacer cuando no aparecen horarios disponibles. Los nombres de botones y pantallas están escritos tal como aparecen en la app.</p>
+<h2 id="1-como-agendar-una-asesoria">1. Cómo agendar una asesoría</h2>
+<p>Una asesoría es una consulta a distancia con un profesional de la salud (médico, psicólogo, nutriólogo o pediatra, según los servicios de tu empresa o plan).</p>
+<p>Pasos para agendar:</p>
+<ol>
+<li>En el inicio de la app toca <strong>"Agendar asesoría"</strong>, o entra a <strong>"Lo que puedo hacer por ti"</strong> o a <strong>"Servicios disponibles para ti"</strong> y elige el servicio que necesitas.</li>
+<li>Si es tu primera asesoría y no has llenado tu perfil de salud, la app te muestra <strong>"¡Completa tu perfil de salud!"</strong>. Toca <strong>"Completar perfil"</strong> y llena tus datos; después regresa al servicio.</li>
+<li>Lee la pantalla de cómo funciona el servicio y toca <strong>"Comenzar"</strong>.</li>
+<li>Contesta las preguntas sobre tus síntomas o sobre lo que necesitas. En algunos servicios la app te ofrece medir tus signos vitales con la cámara del celular; es opcional: puedes tocar <strong>"Iniciar escaneo"</strong> o <strong>"Continuar sin escaneo"</strong>.</li>
+<li>Al final del cuestionario puedes escribir notas y tocar <strong>"Adjuntar imagen (opcional)"</strong> para mandarle fotos al profesional (hasta 4 imágenes de máximo 3 MB cada una).</li>
+<li>En <strong>"Elige el medio por el cual quieres recibir tu asesoría"</strong> escoge llamada telefónica o videollamada.</li>
+<li>Si el servicio lo permite, elige al profesional en <strong>"Nuestros profesionales disponibles"</strong>.</li>
+<li>En <strong>"Elige fecha y horario para tu asesoría."</strong> escoge el día en el calendario y un horario (por la mañana, por la tarde o por la noche).</li>
+<li>Si el servicio tiene costo, la app te pide el <strong>"Método de pago"</strong> (tarjeta o Monedero Digital).</li>
+<li>Espera la pantalla <strong>"Tu asesoría ha sido agendada con éxito"</strong>, que muestra la fecha, la hora y el profesional. No cierres la ventana mientras dice <strong>"Estamos preparando todo para tu asesoría"</strong>.</li>
+</ol>
+<p>Si aparece <strong>"Tuvimos un problema al procesar tu reservación"</strong>, toca <strong>"Reintentar reservación"</strong> y vuelve a elegir el horario.</p>
+<p>Si ya tuviste una asesoría del mismo servicio, la app puede preguntarte <strong>"¿Quieres continuar con tu proceso anterior?"</strong>: elige <strong>"Sí, continuar seguimiento"</strong> para dar continuidad o <strong>"No, iniciar nueva asesoría"</strong> para empezar de cero.</p>
+<p>Mientras agendas, no uses el botón de regresar del navegador: la app avisa que <strong>"Volver desde el navegador cancelará tu progreso."</strong></p>
+<h2 id="2-llamada-telefonica-o-videollamada">2. Llamada telefónica o videollamada</h2>
+<p>El medio de la asesoría se elige al agendar, en el paso <strong>"Elige el medio por el cual quieres recibir tu asesoría"</strong>. Las opciones disponibles dependen del servicio.</p>
+<ul>
+<li><strong>Llamada telefónica:</strong> el profesional te llama al número de celular que tienes registrado en tu perfil. Revisa que esté correcto antes de tu cita; puedes cambiarlo en <strong>Configuración</strong>.</li>
+<li><strong>Videollamada:</strong> entras desde la app (ver la sección 3).</li>
+</ul>
+<p>Una vez agendada, la asesoría no cambia de medio: al reagendar solo se cambian la fecha y la hora. Si elegiste llamada y te llegó información de videollamada, o al revés, repórtalo a soporte para que lo revisen.</p>
+<h2 id="3-como-entrar-a-la-videollamada">3. Cómo entrar a la videollamada</h2>
+<ol>
+<li>A la hora de tu cita, abre la app. En el inicio, en tu próxima asesoría, aparece el botón <strong>"Unirme"</strong>. También puedes entrar desde <strong>"Mis asesorías"</strong>, donde la cita aparece como <strong>"En curso"</strong> con el botón <strong>"Unirme ahora"</strong>.</li>
+<li>El botón aparece desde la hora exacta de la cita y hasta 30 minutos después. Antes de la hora todavía no está disponible.</li>
+<li>Según tu asesoría, la videollamada se abre dentro de la app o en Google Meet (botón <strong>"Unirse a la videollamada"</strong>).</li>
+<li>Si la app te dice <strong>"Necesitamos tu ayuda un momento"</strong>, activa los permisos de cámara y micrófono en tu navegador siguiendo las instrucciones de la pantalla y toca <strong>"Ya lo activé"</strong>.</li>
+</ol>
+<p>Recomendaciones: busca un lugar tranquilo, sin ruido y con buena luz; si puedes, usa audífonos. En Google Meet, si la imagen se corta, también puedes entrar por teléfono con los números de la opción <strong>"Número de acceso a la reunión"</strong>.</p>
+<p>Si al entrar aparece <strong>"Ups, algo salió mal"</strong>, el equipo de soporte recibe un aviso automático. Toca <strong>"Regresar"</strong> y, si no puedes entrar a tiempo, contacta a soporte.</p>
+<h2 id="4-como-reagendar-una-asesoria">4. Cómo reagendar una asesoría</h2>
+<ol>
+<li>En el inicio, en <strong>"Próximas asesorías"</strong>, toca el menú (⋮) de tu cita. También puedes ir a <strong>"Mis asesorías"</strong>, pestaña <strong>"Próximas"</strong>, y tocar la cita.</li>
+<li>En <strong>"¿Qué quieres hacer?"</strong> elige <strong>"Cambiar la fecha"</strong>.</li>
+<li>Elige la nueva fecha y horario y toca <strong>"Confirmar reagendamiento"</strong>.</li>
+<li>La app confirma con <strong>"Tu asesoría ha sido reagendada"</strong> y te muestra la nueva fecha y hora.</li>
+</ol>
+<p>Reglas para reagendar:</p>
+<ul>
+<li>Cada asesoría se puede reagendar <strong>una sola vez</strong>. Si ya la reagendaste, la app muestra <strong>"Esta asesoría no esta disponible"</strong>; en ese caso puedes cancelarla y agendar una nueva.</li>
+<li>Solo se puede reagendar hasta <strong>1 hora antes</strong> de la cita. Faltando una hora o menos, la opción ya no aparece.</li>
+<li>Al reagendar solo cambian la fecha y la hora; el medio (llamada o videollamada) y, si lo elegiste, el profesional, se mantienen.</li>
+</ul>
+<h2 id="5-si-no-pudiste-tomar-tu-asesoria">5. Si no pudiste tomar tu asesoría</h2>
+<p>Si no contestaste la llamada o no entraste a la videollamada, la asesoría pasa a <strong>"Mis asesorías"</strong>, pestaña <strong>"Anteriores"</strong>, con la etiqueta <strong>"No te presentaste"</strong>. Una asesoría que ya pasó no se puede reagendar: para volver a atenderte, agenda una asesoría nueva desde el inicio.</p>
+<p>Si el profesional fue quien no te llamó, o si estuviste esperando y nadie entró a la videollamada, repórtalo a soporte desde la burbuja de ayuda (<strong>"Algo pasó con mi asesoría"</strong> → <strong>"Nadie me atendió"</strong>).</p>
+<h2 id="6-como-cancelar-una-asesoria">6. Cómo cancelar una asesoría</h2>
+<ol>
+<li>En el inicio, en <strong>"Próximas asesorías"</strong>, toca el menú (⋮) de tu cita, o ve a <strong>"Mis asesorías"</strong>, pestaña <strong>"Próximas"</strong>, y toca la cita.</li>
+<li>Elige <strong>"Cancelar la asesoría"</strong>.</li>
+<li>Confirma con <strong>"Cancelar asesoría"</strong> (o toca <strong>"Mantener mi asesoría"</strong> si cambiaste de opinión).</li>
+<li>La app confirma con <strong>"Tu asesoría ha sido cancelada"</strong>.</li>
+</ol>
+<p>Reglas para cancelar:</p>
+<ul>
+<li>Se puede cancelar desde la app hasta <strong>1 hora antes</strong> de la cita.</li>
+<li>Si la asesoría tuvo costo, se reembolsa el <strong>100% a tu monedero digital</strong>. Si está cubierta por tu póliza, no se genera ningún cargo.</li>
+<li>Después de cancelar, ese mismo servicio se puede volver a agendar cuando se cumplan <strong>5 días</strong> desde la cancelación.</li>
+</ul>
+<p>Las asesorías canceladas aparecen en <strong>"Mis asesorías"</strong>, pestaña <strong>"Canceladas"</strong>.</p>
+<h2 id="7-no-aparecen-fechas-u-horarios-disponibles">7. No aparecen fechas u horarios disponibles</h2>
+<p>Los horarios que ves son los que los profesionales tienen libres en ese momento. La app abre horarios nuevos todos los días: si no encuentras lugar, vuelve a intentarlo al día siguiente temprano.</p>
+<ul>
+<li>Si eliges un día y aparece <strong>"No hay horarios disponibles para este día."</strong>, prueba con otro día del calendario. Los días sin horarios se ven deshabilitados.</li>
+<li>Si buscas un profesional en particular, prueba con otro profesional del mismo servicio: cada uno tiene su propia agenda.</li>
+</ul>
+<p>Además, un servicio puede aparecer en gris con un reloj y la leyenda <strong>"Disponible el {fecha}"</strong>. Eso significa que todavía no puedes agendarlo, por una de estas razones:</p>
+<ul>
+<li><strong>Cancelaste una asesoría de ese servicio hace poco:</strong> podrás agendar cuando se cumplan 5 días después de la cancelación.</li>
+<li><strong>En Psicología o Nutrición, tu última asesoría fue hace pocos días:</strong> estos servicios tienen un periodo entre asesorías; la app te dice cuántos días faltan.</li>
+<li><strong>Ya tienes una asesoría agendada de ese servicio</strong> (<strong>"Servicio con asesoría agendada"</strong>): primero toma o cancela esa asesoría.</li>
+</ul>
+<p>Si ninguna de estas razones aplica y no aparece ningún horario en varios días, repórtalo a soporte para que revisen la agenda del servicio.</p>
+<h2 id="8-asesorias-para-hijos-o-menores-de-edad">8. Asesorías para hijos o menores de edad</h2>
+<p>Las asesorías se agendan a nombre de la cuenta que las agenda; la app no tiene un selector para elegir a otra persona como paciente.</p>
+<ul>
+<li><strong>Pediatría</strong> es el servicio para menores. Al agendar, la app pide los datos del menor: sexo, nombre, fecha de nacimiento, peso y estatura. El menor debe tener <strong>menos de 18 años</strong>.</li>
+<li>En Pediatría no se hace la medición de signos vitales con cámara.</li>
+</ul>
+<p>Para otros servicios para un menor (por ejemplo Psicología o Nutrición), consulta con soporte antes de agendar.</p>
+<h2 id="anexo-a-glosario-y-sinonimos-de-busqueda">Anexo A. Glosario y sinónimos de búsqueda</h2>
+<table>
+<thead>
+<tr>
+<th>Término del documento</th>
+<th>Sinónimos y formas en que lo pregunta un usuario</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Asesoría</td>
+<td>cita, consulta, sesión, teleconsulta, consulta en línea, consulta médica</td>
+</tr>
+<tr>
+<td>Agendar</td>
+<td>programar, reservar, sacar cita, apartar, hacer una cita, pedir consulta</td>
+</tr>
+<tr>
+<td>Reagendar</td>
+<td>cambiar la fecha, cambiar el horario, mover la cita, reprogramar, posponer</td>
+</tr>
+<tr>
+<td>Cancelar</td>
+<td>anular, dar de baja la cita, ya no puedo ir, ya no voy a tomar la consulta</td>
+</tr>
+<tr>
+<td>Videollamada</td>
+<td>video, Zoom, Google Meet, Meet, liga, enlace, link de la consulta</td>
+</tr>
+<tr>
+<td>Llamada telefónica</td>
+<td>llamada, teléfono, me van a marcar, que me llamen</td>
+</tr>
+<tr>
+<td>Unirme</td>
+<td>entrar a la consulta, conectarme, ingresar a la videollamada, no veo el botón</td>
+</tr>
+<tr>
+<td>No te presentaste</td>
+<td>no contesté, no pude tomar la llamada, perdí mi cita, asesoría no atendida</td>
+</tr>
+<tr>
+<td>Horarios disponibles</td>
+<td>fechas, disponibilidad, no hay citas, no aparecen fechas, calendario vacío, agenda llena</td>
+</tr>
+<tr>
+<td>Disponible el {fecha}</td>
+<td>servicio bloqueado, no me deja agendar, aparece en gris, tengo que esperar</td>
+</tr>
+<tr>
+<td>Psicología</td>
+<td>psicólogo, psicóloga, terapia, salud mental</td>
+</tr>
+<tr>
+<td>Nutrición</td>
+<td>nutriólogo, nutrióloga, dieta, alimentación</td>
+</tr>
+<tr>
+<td>Pediatría</td>
+<td>pediatra, mi hijo, mi hija, niño, bebé, menor de edad</td>
+</tr>
+<tr>
+<td>Perfil de salud</td>
+<td>historial, datos de salud, completar perfil</td>
+</tr>
+<tr>
+<td>Primera vez</td>
+<td>primera consulta, nunca he agendado, cómo empiezo</td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>
