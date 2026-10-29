@@ -532,3 +532,36 @@ def test_los_enums_del_schema_no_se_separan_de_la_taxonomia():
 
     submotivos = {sub for subs in st.TAXONOMIA.values() for sub in subs}
     assert set(get_args(st.Submotivo)) == submotivos | {""}
+
+
+# --- canal ------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "channel, esperado",
+    [
+        ("whatsapp", "whatsapp"),
+        (" WhatsApp ", "whatsapp"),
+        ("web", "web"),
+        (None, "web"),        # sesion de la PWA anterior a que se sembrara
+        ("", "web"),
+        ("telegram", "web"),  # canal que core-api agrego y aqui no existe
+        (42, "web"),          # state corrupto
+    ],
+)
+def test_el_canal_sale_de_la_sesion(channel, esperado, llamadas, configurado):
+    state = {"profile": dict(PROFILE)}
+    if channel is not None:
+        state["channel"] = channel
+
+    st.crear_ticket("Asunto", "Detalle", "otro", "", FakeContext(state))
+
+    assert llamadas[0]["cuerpo"]["channel"] == esperado
+
+
+def test_el_canal_no_lo_decide_el_cliente(llamadas, configurado):
+    state = {"profile": dict(PROFILE), "client_context": {"channel": "whatsapp"}}
+
+    st.crear_ticket("Asunto", "Detalle", "otro", "", FakeContext(state))
+
+    assert llamadas[0]["cuerpo"]["channel"] == "web"
