@@ -97,10 +97,11 @@ def test_reporter_type_lo_manda_core_api_cuando_no_es_un_user(llamadas, configur
 
 # --- invitado: identidad por contacto ---------------------------------------
 
-# Lo que core-api siembra para quien abre la burbuja sin sesion: el telefono o
-# el correo que el mismo escribio, ya normalizado, y ningun `user_id`.
+# Lo que core-api siembra para quien abre la burbuja sin sesion: el WhatsApp y
+# el nombre que el mismo escribio, ya normalizados, y ningun `user_id`.
 PROFILE_INVITADO = {
     "contact_id": "+525539706542",
+    "name": "Ana Lopez",
     "category": "standard",
     "site_id": 7,
     "site_slug": "saludgs",
@@ -117,18 +118,30 @@ def test_invitado_puede_abrir_ticket_con_su_contacto(llamadas, configurado):
 
     cuerpo = llamadas[0]["cuerpo"]
     assert cuerpo["contact_id"] == "+525539706542"
+    assert cuerpo["contact_name"] == "Ana Lopez"
     # Sin reporter: `SupportTicket` solo exige `contact_id` cuando falta, y
     # mandar los dos dejaria a core-api eligiendo a quien atribuirlo.
     assert "reporter_type" not in cuerpo
     assert "reporter_id" not in cuerpo
 
 
-def test_el_usuario_con_sesion_no_manda_contact_id(llamadas, configurado):
+def test_el_usuario_con_sesion_sin_whatsapp_no_manda_contact_id(llamadas, configurado):
     st.crear_ticket("Asunto", "Detalle", "otro", "", FakeContext())
 
     cuerpo = llamadas[0]["cuerpo"]
     assert cuerpo["reporter_id"] == "36"
     assert "contact_id" not in cuerpo
+
+
+def test_el_usuario_con_sesion_manda_su_whatsapp_como_canal(llamadas, configurado):
+    state = {"profile": {**PROFILE, "contact_id": "+525500000000"}}
+
+    st.crear_ticket("Asunto", "Detalle", "otro", "", FakeContext(state))
+
+    cuerpo = llamadas[0]["cuerpo"]
+    # El reporter sigue siendo la identidad; el WhatsApp va al lado.
+    assert cuerpo["reporter_id"] == "36"
+    assert cuerpo["contact_id"] == "+525500000000"
 
 
 @pytest.mark.parametrize(
@@ -532,3 +545,36 @@ def test_los_enums_del_schema_no_se_separan_de_la_taxonomia():
 
     submotivos = {sub for subs in st.TAXONOMIA.values() for sub in subs}
     assert set(get_args(st.Submotivo)) == submotivos | {""}
+
+
+# --- canal ------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "channel, esperado",
+    [
+        ("whatsapp", "whatsapp"),
+        (" WhatsApp ", "whatsapp"),
+        ("web", "web"),
+        (None, "web"),        # sesion de la PWA anterior a que se sembrara
+        ("", "web"),
+        ("telegram", "web"),  # canal que core-api agrego y aqui no existe
+        (42, "web"),          # state corrupto
+    ],
+)
+def test_el_canal_sale_de_la_sesion(channel, esperado, llamadas, configurado):
+    state = {"profile": dict(PROFILE)}
+    if channel is not None:
+        state["channel"] = channel
+
+    st.crear_ticket("Asunto", "Detalle", "otro", "", FakeContext(state))
+
+    assert llamadas[0]["cuerpo"]["channel"] == esperado
+
+
+def test_el_canal_no_lo_decide_el_cliente(llamadas, configurado):
+    state = {"profile": dict(PROFILE), "client_context": {"channel": "whatsapp"}}
+
+    st.crear_ticket("Asunto", "Detalle", "otro", "", FakeContext(state))
+
+    assert llamadas[0]["cuerpo"]["channel"] == "web"

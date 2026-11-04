@@ -58,6 +58,20 @@ def read_task(state: dict[str, Any]) -> str | None:
     return task.strip().lower() or None if isinstance(task, str) else None
 
 
+# Por donde entro la conversacion: la burbuja de la PWA ("web") o WhatsApp.
+# Lo manda quien levanta la sesion (la PWA dice "web") y core-api lo siembra
+# contra una allowlist, igual que `task`. No va dentro de `client_context`: eso
+# es telemetria que termina en la metadata del issue, y esto es el `channel`
+# del ticket mismo.
+CHANNEL_KEY = "channel"
+
+
+def read_channel(state: dict[str, Any]) -> str | None:
+    """Canal sembrado por core-api, normalizado, o None si no vino."""
+    channel = state.get(CHANNEL_KEY)
+    return channel.strip().lower() or None if isinstance(channel, str) else None
+
+
 # Contexto del cliente que abrio la sesion: en que pantalla estaba, con que
 # version, desde que dispositivo. Lo siembra core-api junto con el perfil (mismo
 # POST a .../sessions) y viaja aparte de `profile` a proposito: `profile` es
