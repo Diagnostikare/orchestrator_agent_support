@@ -604,6 +604,28 @@ Tres decisiones que conviene no deshacer:
    puede creer, y termina renderizada en el issue de GitHub. Del lado del
    agente hay una segunda allowlist (`CONTEXTO_EN_METADATA`) por lo mismo.
 
+### `channel`: web o WhatsApp
+
+El `channel` del ticket que abre `crear_ticket` sale de
+`sessionState["channel"]`, una clave top-level al lado de `profile` (igual que
+`task`). Valores: `"web"` o `"whatsapp"`.
+
+```json
+"sessionState": { "channel": "whatsapp", "profile": {...} }
+```
+
+- **Lo manda quien levanta la sesión, como parámetro top-level del POST a
+  `/agents/sessions`**: la PWA manda `"channel": "web"`
+  (`AGENT_CHANNEL` en `lib/api/ai-assistant.ts`). core-api lo valida contra
+  `AGENT_CHANNELS` en `SessionsController` y lo siembra en el `sessionState`.
+  No va dentro de `client_context`: eso es telemetría que termina en la
+  metadata del issue, y un `client_context.channel` se ignora.
+- **Ausente = `"web"`.** Así se comportan las sesiones de la PWA que ya existen
+  y no lo mandan, y no hay que tocarlas.
+- **Un valor desconocido también cae en `"web"`**, con un WARNING en el log del
+  agente. El ticket se crea igual. Si se agrega un canal en core-api, hay que
+  agregarlo en `CANALES` (`agent/tools/support_tickets.py`).
+
 `site_slug` importa más de lo que parece: `SupportTicket.for_site` filtra por
 `metadata->>'site_slug'`, así que sin él el ticket se crea pero no aparece
 cuando soporte filtra por sitio en el board.

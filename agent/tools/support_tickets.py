@@ -42,7 +42,7 @@ from typing import Any, Literal
 
 from google.adk.tools.tool_context import ToolContext
 
-from ..profile import read_client_context, read_profile
+from ..profile import read_channel, read_client_context, read_profile
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +119,15 @@ CONTEXTO_EN_METADATA = (
     "posthog_distinct_id",
 )
 
+# Canales con los que este agente puede abrir un ticket. Allowlist porque
+# core-api valida `channel` contra la suya y un valor desconocido seria un 422:
+# el usuario perderia su reporte por un error de integracion.
+CANALES = ("web", "whatsapp")
+
+# Sin canal sembrado == la burbuja de la PWA: es lo que mandan las sesiones que
+# existian antes de que core-api empezara a sembrarlo.
+CANAL_POR_DEFECTO = "web"
+
 
 # --- configuracion ----------------------------------------------------------
 
@@ -153,9 +162,11 @@ def _identidad(state: dict[str, Any]) -> dict[str, Any] | None:
         `reporter_type` es parte del contrato de sembrado porque core-api valida
         contra una allowlist (`SupportTicket::REPORTER_TYPES`): el chat de la
         PWA es de `User`, pero BOA manda `ApiUser` y el agente no puede
-        adivinarlo.
-      * **Invitado** — `contact_id`, el telefono o el correo que el propio
-        usuario escribio en la burbuja. Es un dato AFIRMADO: nadie lo verifico
+        adivinarlo. Puede venir ademas `contact_id`, el WhatsApp que confirmo en
+        la burbuja: es solo el canal por el que soporte le responde, no cambia
+        a quien se atribuye el ticket.
+      * **Invitado** — `contact_id`, el WhatsApp que el propio usuario
+        escribio en la burbuja. Es un dato AFIRMADO: nadie lo verifico
         con un OTP. Alcanza para abrir un ticket —sin el, `SupportTicket` lo
         rechaza y el reporte no tendria por donde responderse—, pero no para
         leer tickets: ver `verificada`.
@@ -185,7 +196,7 @@ def _identidad(state: dict[str, Any]) -> dict[str, Any] | None:
             "verificada": True,
             "reporter_type": str(reporter_type),
             "reporter_id": str(user_id),
-            "contact_id": None,
+            "contact_id": str(profile.get("contact_id") or "") or None,
         }
 
     contact_id = profile.get("contact_id")
@@ -202,19 +213,27 @@ def _identidad(state: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def _atribucion(identidad: dict[str, Any]) -> dict[str, Any]:
-    """Los campos con los que el ticket queda atado a alguien."""
+    """Los campos con los que el ticket queda atado a alguien.
+
+    Con sesion el ticket se atribuye por `reporter_*`; el `contact_id`, si el
+    usuario confirmo su WhatsApp, viaja al lado solo como canal de respuesta:
+    `SupportTicket` atribuye por el reporter cuando lo hay.
+    """
     if identidad["verificada"]:
-        return {
+        atribucion = {
             "reporter_type": identidad["reporter_type"],
             "reporter_id": identidad["reporter_id"],
         }
+        if identidad["contact_id"]:
+            atribucion["contact_id"] = identidad["contact_id"]
+        return atribucion
     return {"contact_id": identidad["contact_id"]}
 
 
 def _etiqueta(identidad: dict[str, Any]) -> str:
     """Como se nombra a este usuario en los logs. Sin PII del invitado.
 
-    El `contact_id` es un telefono o un correo: escribirlo en el log lo replica
+    El `contact_id` es un telefono: escribirlo en el log lo replica
     en Cloud Logging, fuera del ciclo de vida del ticket. Para leer una traza
     alcanza con saber que fue un invitado.
     """
@@ -455,6 +474,20 @@ def _metadata(identidad: dict, state: dict, motivo: str, submotivo: str | None) 
     return {k: v for k, v in metadata.items() if v not in (None, "")}
 
 
+def _canal(state: dict[str, Any]) -> str:
+    """El `channel` del ticket, segun por donde entro la sesion."""
+    canal = read_channel(state)
+    if canal is None:
+        return CANAL_POR_DEFECTO
+    if canal not in CANALES:
+        # Canal nuevo en core-api que este mapa no conoce. Se abre igual como
+        # web —el reporte importa mas que la etiqueta—, pero es un bug de
+        # integracion y tiene que verse en los logs.
+        logger.warning("canal %r desconocido; usando %r", canal, CANAL_POR_DEFECTO)
+        return CANAL_POR_DEFECTO
+    return canal
+
+
 def crear_ticket(
     asunto: str, detalle: str, motivo: Motivo, submotivo: Submotivo, tool_context: ToolContext
 ) -> dict:
@@ -491,17 +524,14 @@ def crear_ticket(
 
     motivo, submotivo = _clasificar(motivo, submotivo)
 
-    # `channel: "web"` porque este agente atiende el chat. Los tickets de
-    # WhatsApp los abre el Flow del lado de core-api, no pasan por aqui.
     cuerpo = {
         "subject": asunto[:255],
         "body": (detalle or "").strip() or None,
-        "channel": "web",
+        "channel": _canal(tool_context.state),
         "contact_name": identidad["contact_name"],
         "metadata": _metadata(identidad, tool_context.state, motivo, submotivo),
-        # Uno o el otro, nunca los dos: con `reporter_type` presente core-api ya
-        # no exige `contact_id`, y mandar ambos dejaria al backend eligiendo a
-        # quien atribuir el ticket.
+        # Con sesion manda el reporter y, si lo hay, el WhatsApp como canal; el
+        # invitado solo su `contact_id`. Ver `_atribucion`.
         **_atribucion(identidad),
     }
 
