@@ -162,9 +162,11 @@ def _identidad(state: dict[str, Any]) -> dict[str, Any] | None:
         `reporter_type` es parte del contrato de sembrado porque core-api valida
         contra una allowlist (`SupportTicket::REPORTER_TYPES`): el chat de la
         PWA es de `User`, pero BOA manda `ApiUser` y el agente no puede
-        adivinarlo.
-      * **Invitado** — `contact_id`, el telefono o el correo que el propio
-        usuario escribio en la burbuja. Es un dato AFIRMADO: nadie lo verifico
+        adivinarlo. Puede venir ademas `contact_id`, el WhatsApp que confirmo en
+        la burbuja: es solo el canal por el que soporte le responde, no cambia
+        a quien se atribuye el ticket.
+      * **Invitado** — `contact_id`, el WhatsApp que el propio usuario
+        escribio en la burbuja. Es un dato AFIRMADO: nadie lo verifico
         con un OTP. Alcanza para abrir un ticket —sin el, `SupportTicket` lo
         rechaza y el reporte no tendria por donde responderse—, pero no para
         leer tickets: ver `verificada`.
@@ -194,7 +196,7 @@ def _identidad(state: dict[str, Any]) -> dict[str, Any] | None:
             "verificada": True,
             "reporter_type": str(reporter_type),
             "reporter_id": str(user_id),
-            "contact_id": None,
+            "contact_id": str(profile.get("contact_id") or "") or None,
         }
 
     contact_id = profile.get("contact_id")
@@ -211,19 +213,27 @@ def _identidad(state: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def _atribucion(identidad: dict[str, Any]) -> dict[str, Any]:
-    """Los campos con los que el ticket queda atado a alguien."""
+    """Los campos con los que el ticket queda atado a alguien.
+
+    Con sesion el ticket se atribuye por `reporter_*`; el `contact_id`, si el
+    usuario confirmo su WhatsApp, viaja al lado solo como canal de respuesta:
+    `SupportTicket` atribuye por el reporter cuando lo hay.
+    """
     if identidad["verificada"]:
-        return {
+        atribucion = {
             "reporter_type": identidad["reporter_type"],
             "reporter_id": identidad["reporter_id"],
         }
+        if identidad["contact_id"]:
+            atribucion["contact_id"] = identidad["contact_id"]
+        return atribucion
     return {"contact_id": identidad["contact_id"]}
 
 
 def _etiqueta(identidad: dict[str, Any]) -> str:
     """Como se nombra a este usuario en los logs. Sin PII del invitado.
 
-    El `contact_id` es un telefono o un correo: escribirlo en el log lo replica
+    El `contact_id` es un telefono: escribirlo en el log lo replica
     en Cloud Logging, fuera del ciclo de vida del ticket. Para leer una traza
     alcanza con saber que fue un invitado.
     """
@@ -520,9 +530,8 @@ def crear_ticket(
         "channel": _canal(tool_context.state),
         "contact_name": identidad["contact_name"],
         "metadata": _metadata(identidad, tool_context.state, motivo, submotivo),
-        # Uno o el otro, nunca los dos: con `reporter_type` presente core-api ya
-        # no exige `contact_id`, y mandar ambos dejaria al backend eligiendo a
-        # quien atribuir el ticket.
+        # Con sesion manda el reporter y, si lo hay, el WhatsApp como canal; el
+        # invitado solo su `contact_id`. Ver `_atribucion`.
         **_atribucion(identidad),
     }
 
